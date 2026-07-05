@@ -3,13 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Coastal Advisory Australia — Insurance Pre-Screening Platform</title>
+<title>Mat's Amazing Pre-Screening Hub</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --navy:#0f2433;
     --sky:#def5ff;
     --peach:#eba380;
-    --concrete:#e8eaec;
+    --concrete:#e5e5e5;
     --white:#ffffff;
     --ink:#1c2b36;
     --muted:#5e6b75;
@@ -23,7 +28,7 @@
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
   body{
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-family:"Figtree",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--concrete);
     color:var(--ink);
     font-size:14px;
@@ -39,10 +44,8 @@
     display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;
   }
   .brandmark{
-    width:38px;height:38px;border-radius:9px;flex:0 0 auto;
-    background:linear-gradient(135deg,var(--sky),var(--peach));
+    width:40px;height:40px;flex:0 0 auto;color:#fff;
     display:flex;align-items:center;justify-content:center;
-    color:var(--navy);font-weight:800;font-size:16px;letter-spacing:-.5px;
   }
   .brandtext b{display:block;font-size:16px;line-height:1.1}
   .brandtext span{font-size:11.5px;opacity:.7;letter-spacing:.3px}
@@ -51,6 +54,37 @@
   .topbar .crumb b{opacity:1}
 
   .wrap{max-width:1680px;margin:0 auto;padding:24px 32px}
+
+  /* ---- Brand logo ---- */
+  .ca-mark{width:100%;height:100%;display:block}
+  .brandlogo{height:36px;width:auto;display:block;flex:0 0 auto}
+  .login-logo img{max-height:104px;width:auto;display:block;margin:0 auto 8px}
+  /* ---- Login / landing ---- */
+  #loginView{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+    background:
+      radial-gradient(75% 48% at 50% 110%, rgba(235,163,128,.75), rgba(222,245,255,.30) 45%, transparent 72%),
+      linear-gradient(180deg,#0b1c29 0%, #0f2433 42%, #18394b 68%, #4a7289 100%);
+    -webkit-print-color-adjust:exact;print-color-adjust:exact;padding:24px}
+  body.signed-out #loginView{display:flex}
+  body.signed-out > header.topbar, body.signed-out > .wrap{display:none}
+  .login-card{width:100%;max-width:460px;text-align:center;color:#fff}
+  .login-mark{width:88px;height:88px;margin:0 auto 10px;color:#fff}
+  .login-wordmark{font-size:15px;letter-spacing:.5px;opacity:.9;font-weight:600}
+  .login-title{font-size:27px;font-weight:750;color:#fff;margin:22px 0 6px;line-height:1.15}
+  .login-tag{font-size:14px;opacity:.85;margin:0 0 26px;font-weight:400}
+  .login-btn{display:inline-flex;align-items:center;gap:10px;background:#fff;color:var(--navy);border:none;
+    padding:13px 26px;border-radius:30px;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.22);transition:transform .1s,box-shadow .1s}
+  .login-btn:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(0,0,0,.28)}
+  .login-btn:disabled{opacity:.6;cursor:default;transform:none}
+  .login-note{font-size:12.5px;opacity:.8;margin:16px 0 0}
+  .login-err{font-size:12.5px;color:#fff;background:rgba(179,64,47,.55);border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:8px 12px;margin:16px auto 0;max-width:400px;display:none}
+  .login-foot{position:fixed;left:0;right:0;bottom:16px;text-align:center;font-size:10.5px;color:rgba(255,255,255,.75);padding:0 24px;line-height:1.5}
+  .ms-logo{width:17px;height:17px;flex:0 0 auto}
+  /* signed-in user chip in header */
+  .userchip{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#fff;margin-left:14px}
+  .userchip .uc-name{opacity:.9}
+  .userchip .uc-out{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:4px 9px;font-size:11.5px;font-weight:600;cursor:pointer}
+  .userchip .uc-out:hover{background:rgba(255,255,255,.24)}
 
   /* ---------- Buttons ---------- */
   .btn{
@@ -320,17 +354,59 @@
   }
 </style>
 </head>
-<body>
+<body class="signed-out">
+
+<!-- LOGIN / LANDING -->
+<div id="loginView">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="CAA_PrimaryLogo_White.png" alt="Coastal Advisory Australia"
+           onerror="this.style.display='none';document.getElementById('loginLogoFallback').style.display='block'">
+      <div id="loginLogoFallback" style="display:none">
+        <div class="login-mark">
+          <svg class="ca-mark" viewBox="0 0 90 100" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" aria-hidden="true">
+            <line x1="70" y1="8" x2="70" y2="92"/>
+            <line x1="60" y1="50" x2="60" y2="10"/><line x1="60" y1="50" x2="45" y2="14"/><line x1="60" y1="50" x2="31" y2="22"/>
+            <line x1="60" y1="50" x2="21" y2="36"/><line x1="60" y1="50" x2="17" y2="50"/><line x1="60" y1="50" x2="21" y2="64"/>
+            <line x1="60" y1="50" x2="31" y2="78"/><line x1="60" y1="50" x2="45" y2="86"/><line x1="60" y1="50" x2="60" y2="90"/>
+            <circle cx="60" cy="50" r="4.6" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="login-wordmark">Coastal Advisory Australia</div>
+      </div>
+    </div>
+    <h1 class="login-title">Insurance Pre-Screening Hub</h1>
+    <p class="login-tag">Plan everything. Regret nothing.</p>
+    <button class="login-btn" id="loginBtn" onclick="signInGate()">
+      <svg class="ms-logo" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </button>
+    <p class="login-note">Use your Coastal Advisory Microsoft 365 account.</p>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+  <div class="login-foot">Coastal Advisory Australia is a Corporate Authorised Representative of RI Advice Group Pty Ltd ABN 23 001 774 125 AFSL 238429.</div>
+</div>
 
 <header class="topbar">
-  <div class="brandmark">CA</div>
+  <img class="brandlogo" src="CAA_Secondary_Logo_White.png" alt="Coastal Advisory Australia"
+       onerror="this.style.display='none';document.getElementById('brandMarkFallback').style.display='flex'">
+  <div class="brandmark" id="brandMarkFallback" style="display:none">
+    <svg class="ca-mark" viewBox="0 0 90 100" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" aria-hidden="true">
+      <line x1="70" y1="8" x2="70" y2="92"/>
+      <line x1="60" y1="50" x2="60" y2="10"/><line x1="60" y1="50" x2="45" y2="14"/><line x1="60" y1="50" x2="31" y2="22"/>
+      <line x1="60" y1="50" x2="21" y2="36"/><line x1="60" y1="50" x2="17" y2="50"/><line x1="60" y1="50" x2="21" y2="64"/>
+      <line x1="60" y1="50" x2="31" y2="78"/><line x1="60" y1="50" x2="45" y2="86"/><line x1="60" y1="50" x2="60" y2="90"/>
+      <circle cx="60" cy="50" r="4.6" fill="currentColor" stroke="none"/>
+    </svg>
+  </div>
   <div class="brandtext">
-    <b>Coastal Advisory Australia</b>
-    <span>Insurance Pre-Screening Platform</span>
+    <b>Mat's Amazing Insurance Pre-Screening Hub</b>
+    <span>Coastal Advisory Australia</span>
   </div>
   <div class="spacer"></div>
   <div class="crumb" id="crumb"></div>
   <button class="btn ghost sm" style="margin-left:14px" onclick="runConnectionTest()">⚙ Test SharePoint</button>
+  <div class="userchip" id="userChip"></div>
 </header>
 
 <div class="wrap">
@@ -371,6 +447,7 @@ const GRAPH_CONFIG = {
   tenantId: "c315932a-57bd-4717-a27e-dd4a7fb23342",
   siteHostname: "coastaladvicegroup.sharepoint.com",
   sitePath: "/sites/PowerApp",
+  loginScopes: ["User.Read"],
   scopes: ["Sites.ReadWrite.All"],
   lists: {
     submissions: "PreScreening Submissions",
@@ -1414,10 +1491,53 @@ async function runConnectionTest(){
   }
 }
 
+/* ===================== AUTH GATE ===================== */
+async function signInGate(){
+  const btn=document.getElementById("loginBtn"), err=document.getElementById("loginErr");
+  err.style.display="none";
+  try{
+    initMsal();
+    btn.disabled=true; btn.textContent="Signing in…";
+    let acct = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0];
+    if(!acct){ const res=await msalApp.loginPopup({ scopes: GRAPH_CONFIG.loginScopes, prompt:"select_account" }); acct=res.account; }
+    if(acct.tenantId && acct.tenantId!==GRAPH_CONFIG.tenantId){
+      await msalApp.logoutPopup({ account:acct }).catch(()=>{});
+      throw new Error("That account isn't part of the Coastal Advisory tenancy. Please sign in with your Coastal Advisory Microsoft 365 account.");
+    }
+    msalApp.setActiveAccount(acct);
+    enterApp(acct);
+  }catch(e){
+    const msg=(e&&e.message)?e.message:String(e);
+    err.innerHTML=esc(msg)+'<br><br>Redirect URI to register in Entra (Authentication → SPA):<br><b>'+esc(window.location.origin+window.location.pathname)+'</b>';
+    err.style.display="block";
+  }finally{
+    btn.disabled=false; btn.innerHTML='<svg class="ms-logo" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg> Sign in with Microsoft';
+  }
+}
+function enterApp(acct){
+  document.body.classList.remove("signed-out");
+  const chip=document.getElementById("userChip");
+  const who=acct?(acct.name||acct.username||"Signed in"):"Signed in";
+  chip.innerHTML='<span class="uc-name">'+esc(who)+'</span><button class="uc-out" onclick="signOutUser()">Sign out</button>';
+  load();
+  showDashboard();
+}
+function signOutUser(){
+  try{ const acct=msalApp.getActiveAccount(); msalApp.logoutPopup({ account:acct }).catch(()=>{}); }catch(e){}
+  document.body.classList.add("signed-out");
+  document.getElementById("userChip").innerHTML="";
+}
+
 /* ===================== BOOT ===================== */
-load();
-showDashboard();
-document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeModal(); });
+(function boot(){
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeModal(); });
+  try{
+    initMsal();
+    const acct = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0];
+    if(acct && (!acct.tenantId || acct.tenantId===GRAPH_CONFIG.tenantId)){ msalApp.setActiveAccount(acct); enterApp(acct); return; }
+  }catch(e){ /* MSAL not available — stay on login screen */ }
+  document.body.classList.add("signed-out"); // show login
+})();
 </script>
 </body>
 </html>

@@ -1,0 +1,1423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coastal Advisory Australia — Insurance Pre-Screening Platform</title>
+<style>
+  :root{
+    --navy:#0f2433;
+    --sky:#def5ff;
+    --peach:#eba380;
+    --concrete:#e8eaec;
+    --white:#ffffff;
+    --ink:#1c2b36;
+    --muted:#5e6b75;
+    --line:#d4d9dd;
+    --good:#1f8a5b;
+    --warn:#c47f2a;
+    --bad:#b3402f;
+    --shadow:0 1px 3px rgba(15,36,51,.08),0 4px 16px rgba(15,36,51,.06);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--concrete);
+    color:var(--ink);
+    font-size:14px;
+    line-height:1.45;
+  }
+  h1,h2,h3,h4{margin:0;font-weight:650;color:var(--navy)}
+  a{color:inherit}
+  button{font-family:inherit;font-size:14px;cursor:pointer}
+
+  /* ---------- App chrome ---------- */
+  header.topbar{
+    background:var(--navy);color:#fff;padding:14px 32px;
+    display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:50;
+  }
+  .brandmark{
+    width:38px;height:38px;border-radius:9px;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--sky),var(--peach));
+    display:flex;align-items:center;justify-content:center;
+    color:var(--navy);font-weight:800;font-size:16px;letter-spacing:-.5px;
+  }
+  .brandtext b{display:block;font-size:16px;line-height:1.1}
+  .brandtext span{font-size:11.5px;opacity:.7;letter-spacing:.3px}
+  .topbar .spacer{flex:1}
+  .topbar .crumb{font-size:13px;opacity:.85}
+  .topbar .crumb b{opacity:1}
+
+  .wrap{max-width:1680px;margin:0 auto;padding:24px 32px}
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    border:1px solid var(--navy);background:var(--navy);color:#fff;
+    padding:8px 14px;border-radius:8px;font-weight:600;display:inline-flex;
+    align-items:center;gap:7px;line-height:1;transition:filter .12s,background .12s;
+  }
+  .btn:hover{filter:brightness(1.12)}
+  .btn.ghost{background:#fff;color:var(--navy)}
+  .btn.ghost:hover{background:var(--sky);filter:none}
+  .btn.peach{background:var(--peach);border-color:var(--peach);color:var(--navy)}
+  .btn.sm{padding:6px 10px;font-size:12.5px;border-radius:7px}
+  .btn.danger{background:#fff;color:var(--bad);border-color:var(--bad)}
+  .btn.danger:hover{background:#fbe9e6;filter:none}
+  .icnbtn{border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:7px;padding:5px 9px;font-size:12.5px;font-weight:600}
+  .icnbtn:hover{border-color:var(--navy);color:var(--navy)}
+
+  /* ---------- Dashboard ---------- */
+  .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:22px}
+  .stat{background:#fff;border-radius:var(--radius);padding:18px 18px 16px;box-shadow:var(--shadow);border-left:4px solid var(--sky)}
+  .stat:nth-child(2){border-left-color:var(--peach)}
+  .stat:nth-child(3){border-left-color:var(--good)}
+  .stat:nth-child(4){border-left-color:var(--warn)}
+  .stat:nth-child(5){border-left-color:var(--navy)}
+  .stat .num{font-size:30px;font-weight:750;color:var(--navy);line-height:1}
+  .stat .lbl{font-size:12.5px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.4px}
+
+  .toolbar{display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .search{flex:1;min-width:220px;position:relative}
+  .search input{
+    width:100%;padding:10px 12px 10px 36px;border:1px solid var(--line);
+    border-radius:9px;font-size:14px;background:#fff;
+  }
+  .search input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.45}
+
+  .tabs{display:flex;gap:4px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:4px}
+  .tabs button{border:none;background:none;padding:7px 16px;border-radius:6px;font-weight:600;color:var(--muted)}
+  .tabs button.active{background:var(--navy);color:#fff}
+
+  .caselist{display:flex;flex-direction:column;gap:12px}
+  .casecard{
+    background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);
+    padding:16px 18px;display:flex;align-items:center;gap:16px;cursor:pointer;
+    border:1px solid transparent;transition:border-color .12s,transform .06s;
+  }
+  .casecard:hover{border-color:var(--sky);transform:translateY(-1px)}
+  .avatar{
+    width:46px;height:46px;border-radius:50%;flex:0 0 auto;background:var(--sky);
+    color:var(--navy);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:15px;
+  }
+  .casecard .cmain{flex:1;min-width:0}
+  .casecard .cname{font-size:15.5px;font-weight:650;color:var(--navy)}
+  .casecard .cmeta{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .casecard .ctags{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+  .chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--concrete);color:var(--muted)}
+  .chip.cat{background:var(--sky);color:var(--navy)}
+
+  .casecard .cright{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:0 0 auto}
+  .daysbadge{color:var(--good)}
+  .cx{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:8px;vertical-align:middle;letter-spacing:.2px}
+  .cx-Simple{background:var(--sky);color:var(--navy)}
+  .cx-Complex{background:#fdeee0;color:#9a5a25}
+  .cx-none{background:var(--concrete);color:var(--muted);font-weight:600}
+  .cxtoggle{display:inline-flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .cxtoggle button{border:none;background:#fff;color:var(--muted);padding:5px 11px;font-size:11.5px;font-weight:600;cursor:pointer;transition:background .1s}
+  .cxtoggle button:first-child{border-right:1px solid var(--line)}
+  .cxtoggle button:hover{background:var(--concrete)}
+  .cxtoggle button.on{background:var(--sky);color:var(--navy)}
+  .cxtoggle button.on.complex{background:var(--peach);color:var(--navy)}
+  .pill{font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:20px;white-space:nowrap}
+  .pill.prog{background:#fff4e7;color:var(--warn);border:1px solid #f0d4ad}
+  .pill.done{background:#e6f6ee;color:var(--good);border:1px solid #b9e3cd}
+
+  .empty{background:#fff;border:1px dashed var(--line);border-radius:var(--radius);padding:48px;text-align:center;color:var(--muted)}
+
+  /* ---------- Detail view ---------- */
+  .detailhead{display:flex;align-items:flex-start;gap:18px;margin-bottom:20px;flex-wrap:wrap}
+  .detailhead .big{font-size:24px}
+  .detailhead .sub{color:var(--muted);font-size:13px;margin-top:3px}
+  .detailhead .actions{display:flex;gap:8px;flex-wrap:wrap}
+
+  .panelgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .panel > h3{
+    background:var(--navy);color:#fff;font-size:13px;padding:11px 16px;
+    text-transform:uppercase;letter-spacing:.6px;font-weight:600;
+    display:flex;align-items:center;gap:8px;
+  }
+  .panel .pbody{padding:14px 16px}
+  .kv{display:grid;grid-template-columns:42% 58%;gap:6px 10px;font-size:13px}
+  .kv dt{color:var(--muted)}
+  .kv dd{margin:0;color:var(--ink);font-weight:500}
+
+  .section{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
+  .section > .shead{
+    padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);
+  }
+  .section > .shead h2{font-size:16px;flex:1}
+  .section > .sbody{padding:16px 18px}
+
+  table.grid{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.grid th{
+    text-align:left;background:var(--concrete);color:var(--muted);font-weight:600;
+    padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;
+  }
+  table.grid td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.grid tr:last-child td{border-bottom:none}
+  table.grid tr:hover td{background:#fafbfc}
+  .rowact{display:flex;gap:5px}
+
+  /* insurer cards */
+  .insurergrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .insurercard{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
+  .insurercard .ihead{background:var(--sky);padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+  .insurercard .ihead h4{font-size:15px;flex:1}
+  .insurercard .ihead .idates{font-size:11.5px;color:var(--muted);text-align:right;line-height:1.5}
+  .coverrow{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .coverrow:last-of-type{border-bottom:none}
+  .coverrow .ctop{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .coverrow .cname2{font-weight:700;font-size:12.5px;color:var(--navy);width:130px}
+  .coverrow .cdetail{font-size:11.5px;color:var(--muted);margin-top:2px;padding-left:0}
+  .outcome{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:5px;text-transform:uppercase;letter-spacing:.3px}
+  .o-Standard{background:#e6f6ee;color:var(--good)}
+  .o-Loaded{background:#fff4e7;color:var(--warn)}
+  .o-Exclusion{background:#fdeee0;color:#9a5a25}
+  .o-Postponed{background:#eef0f2;color:var(--muted)}
+  .o-Declined{background:#fbe9e6;color:var(--bad)}
+  .o-Notassessed{background:#eef0f2;color:#9aa4ad}
+  .inotes{padding:10px 14px;font-size:12px;color:var(--muted);background:#fafbfc;border-top:1px solid var(--line)}
+  .inotes b{color:var(--ink)}
+
+  /* insurer table */
+  .insurerscroll{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+  table.insurertbl{width:100%;border-collapse:collapse;font-size:12px;min-width:960px}
+  .insurertbl th{background:var(--navy);color:#fff;text-align:left;padding:9px 8px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+  .insurertbl td{border-bottom:2px solid #d7dde2;padding:10px 8px;vertical-align:top;background:#fff}
+  .insurertbl tbody tr:nth-child(even) td{background:#eef3f6}
+  .insurertbl tbody tr:hover td{background:var(--sky)}
+  .insurertbl tr:last-child td{border-bottom:none}
+  .insurertbl td.insurercell{border-left:4px solid var(--navy)}
+  .insurertbl tbody tr:nth-child(even) td.insurercell{border-left-color:var(--peach)}
+  .insurertbl select,.insurertbl input,.insurertbl textarea{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 6px;font-size:11.5px;font-family:inherit;background:#fff}
+  .insurertbl select:focus,.insurertbl input:focus,.insurertbl textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(15,36,51,.1)}
+  .insurertbl .celltype{font-weight:700;color:var(--navy)}
+  .insurertbl .mini{margin-top:5px}
+  .insurertbl .nm{font-weight:650}
+  .insurertbl .dates{display:flex;gap:6px;margin-top:6px}
+  .insurertbl .dates label{font-size:9px;color:var(--muted);flex:1}
+  .insurertbl .dates input{padding:3px 4px;font-size:10.5px}
+  .insurertbl textarea.notes{min-height:52px;resize:vertical}
+  .insurertbl td.covercell{min-width:150px}
+  .insurertbl td.insurercell{min-width:160px}
+  .insurertbl td.occ{min-width:130px}
+  .insurertbl td.notes{min-width:150px}
+
+  .rawbox{
+    background:#fbfcfd;border:1px solid var(--line);border-radius:8px;padding:14px 16px;
+    font-family:ui-monospace,"Cascadia Code",Consolas,monospace;font-size:12px;
+    white-space:pre-wrap;color:var(--ink);max-height:340px;overflow:auto;line-height:1.6;
+  }
+
+  /* ---------- Modal ---------- */
+  .modalbg{position:fixed;inset:0;background:rgba(15,36,51,.5);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:32px 16px;overflow:auto}
+  .modalbg.open{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:720px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .modal .mhead{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+  .modal .mhead h3{flex:1;font-size:17px}
+  .modal .mbody{padding:18px 20px;max-height:65vh;overflow:auto}
+  .modal .mfoot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+  .closex{border:none;background:none;font-size:22px;color:var(--muted);cursor:pointer;line-height:1}
+
+  .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+  .formgrid .full{grid-column:1/-1}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:4px}
+  .field input,.field select,.field textarea{
+    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;background:#fff;
+  }
+  .field textarea{resize:vertical;min-height:64px}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
+  fieldset.coverset{border:1px solid var(--line);border-radius:9px;padding:12px 14px;margin:0 0 6px;grid-column:1/-1}
+  fieldset.coverset legend{font-weight:700;color:var(--navy);font-size:13px;padding:0 6px}
+
+  .muted{color:var(--muted)}
+  .hidden{display:none!important}
+
+  /* ---------- Print / Report ---------- */
+  @media print{
+    header.topbar,.toolbar,.tabs,.detailhead .actions,.rowact,.shead .btn,.no-print{display:none!important}
+    body{background:#fff;font-size:11px}
+    .wrap{max-width:none;padding:0}
+    .section,.panel,.casecard{box-shadow:none;border:1px solid #ccc}
+    .panelgrid{grid-template-columns:1fr 1fr}
+    .insurergrid{grid-template-columns:1fr}
+    .panel > h3,.insurercard .ihead{background:#0f2433!important;color:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .insurercard .ihead{color:var(--navy)!important}
+    table.grid th{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .section{break-inside:avoid}
+    .printhead{display:block!important}
+    .insurerscroll{overflow:visible;border:none}
+    table.insurertbl{min-width:0}
+    .insurertbl th{background:#0f2433!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .insurertbl select,.insurertbl input,.insurertbl textarea{border:none!important;background:transparent!important;box-shadow:none!important;padding:1px 0!important;margin-top:2px!important;-webkit-appearance:none;appearance:none;font-size:10px}
+    .insurertbl .celltype{-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:2px 0!important;font-weight:700}
+  }
+  .printhead{display:none;margin-bottom:16px;border-bottom:3px solid var(--navy);padding-bottom:10px}
+  .printhead b{font-size:18px;color:var(--navy)}
+  .printhead span{display:block;font-size:11px;color:#555}
+  .print-only{display:none}
+  @media print{ .print-only{display:block!important} }
+
+  /* ===== Dedicated print report (landscape A4) ===== */
+  #printReport{display:none}
+  @media print{
+    @page{size:A4 landscape;margin:9mm}
+    body.viewing-case > header.topbar,
+    body.viewing-case > .wrap{display:none!important}
+    body.viewing-case #printReport{display:block!important}
+  }
+  #printReport{color:#1c2b36;font-size:9.5px;line-height:1.4}
+  .rep-header{display:flex;align-items:center;gap:14px;border-bottom:3px solid var(--navy);padding-bottom:9px;margin-bottom:12px}
+  .rep-logo{width:40px;height:40px;border-radius:8px;background:var(--navy);color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-brand b{display:block;font-size:15px;color:var(--navy)}
+  .rep-brand span{font-size:10px;color:#667}
+  .rep-meta{margin-left:auto;text-align:right}
+  .rep-meta .rep-name{font-size:16px;font-weight:700;color:var(--navy)}
+  .rep-meta .rep-sub{font-size:10px;color:#556}
+  .rep-status{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-status.prog{background:#fff4e7;color:#c47f2a}
+  .rep-status.done{background:#e6f6ee;color:#1f8a5b}
+  .rep-mgmt{display:flex;flex-wrap:wrap;gap:8px 22px;background:var(--sky);border-radius:7px;padding:8px 12px;margin-bottom:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-mgmt b{color:var(--navy)}
+  .rep-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
+  .rep-panel{border:1px solid #cfd6db;border-radius:7px;overflow:hidden;break-inside:avoid}
+  .rep-panel h4{background:var(--sky);color:var(--navy);font-size:9.5px;padding:5px 8px;text-transform:uppercase;letter-spacing:.4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.rep-kv{width:100%;border-collapse:collapse}
+  table.rep-kv{table-layout:fixed}
+  table.rep-kv td{padding:3px 8px;vertical-align:top;border-bottom:1px solid #eef0f2;word-break:break-word;overflow-wrap:anywhere}
+  table.rep-kv tr:last-child td{border-bottom:none}
+  table.rep-kv .rk{color:#667;width:42%}
+  table.rep-kv .rv{font-weight:600}
+  .rep-sec{margin-bottom:12px;break-inside:auto}
+  .rep-sec > h3{font-size:11px;color:var(--navy);border-bottom:2px solid var(--sky);padding-bottom:3px;margin-bottom:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.rep-tbl{width:100%;border-collapse:collapse;font-size:9px;table-layout:fixed}
+  table.rep-tbl td,table.rep-tbl th{word-break:break-word;overflow-wrap:anywhere}
+  table.rep-tbl thead{display:table-header-group}
+  table.rep-tbl th{background:var(--navy);color:#fff;text-align:left;padding:5px 6px;font-size:8px;text-transform:uppercase;letter-spacing:.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table.rep-tbl td{padding:5px 6px;border-bottom:1px solid #d7dde2;vertical-align:top}
+  table.rep-tbl tr{break-inside:avoid}
+  table.rep-tbl tbody tr:nth-child(even) td{background:#f2f5f7;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-tbl .rcell{padding:3px 5px;border-radius:4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-tbl .rcell b{font-size:8.5px}
+  .rep-tbl .rcd{font-size:8px;color:#445;margin-top:1px}
+  .rep-tbl .rins{font-weight:700;color:var(--navy);font-size:9.5px}
+  .rep-tbl .rins small{display:block;font-weight:400;color:#667;font-size:7.5px;margin-top:1px}
+  .rep-raw{border:1px solid #cfd6db;border-radius:7px;padding:9px 11px;white-space:pre-wrap;font-family:ui-monospace,Consolas,monospace;font-size:8.5px;line-height:1.5;background:#fbfcfd}
+  .rep-foot{margin-top:10px;border-top:1px solid #cfd6db;padding-top:5px;font-size:8px;color:#889;display:flex;justify-content:space-between}
+  .rep-empty{color:#889;font-style:italic;padding:4px 2px}
+  /* PDF export overlay (report rendered on-screen so html2canvas captures it reliably) */
+  #pdfOverlay{position:fixed;inset:0;background:var(--concrete);z-index:9998;overflow:auto;padding:24px}
+  #pdfOverlay .pdfmsg{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+  .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
+
+  @media(max-width:760px){
+    .stats{grid-template-columns:1fr 1fr}
+    .panelgrid,.insurergrid,.formgrid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brandmark">CA</div>
+  <div class="brandtext">
+    <b>Coastal Advisory Australia</b>
+    <span>Insurance Pre-Screening Platform</span>
+  </div>
+  <div class="spacer"></div>
+  <div class="crumb" id="crumb"></div>
+  <button class="btn ghost sm" style="margin-left:14px" onclick="runConnectionTest()">⚙ Test SharePoint</button>
+</header>
+
+<div class="wrap">
+  <!-- DASHBOARD -->
+  <div id="view-dashboard"></div>
+  <!-- DETAIL -->
+  <div id="view-detail" class="hidden"></div>
+</div>
+
+<!-- Print-only report (built on demand) -->
+<div id="printReport"></div>
+
+<!-- Generic modal -->
+<div class="modalbg" id="modalbg">
+  <div class="modal">
+    <div class="mhead"><h3 id="modalTitle">Title</h3><button class="closex" onclick="closeModal()">&times;</button></div>
+    <div class="mbody" id="modalBody"></div>
+    <div class="mfoot" id="modalFoot"></div>
+  </div>
+</div>
+
+<script src="jspdf.umd.min.js"></script>
+<script src="jspdf.plugin.autotable.min.js"></script>
+<script src="msal-browser.min.js"></script>
+<script>
+/* ============================================================
+   Coastal Advisory — Insurance Pre-Screening Platform
+   Single-file local app. Data model aligns to SharePoint lists:
+     PreScreening Submissions / Health Issues / Insurer Outcomes / Family History
+   Persistence: localStorage (swap to Graph API later).
+   ============================================================ */
+
+const STORE_KEY = 'caa_prescreening_v3';
+
+/* ===================== SHAREPOINT / GRAPH CONFIG ===================== */
+const GRAPH_CONFIG = {
+  clientId: "955d432d-e641-4d38-9165-5da1ab2c2bc5",
+  tenantId: "c315932a-57bd-4717-a27e-dd4a7fb23342",
+  siteHostname: "coastaladvicegroup.sharepoint.com",
+  sitePath: "/sites/PowerApp",
+  scopes: ["Sites.ReadWrite.All"],
+  lists: {
+    submissions: "PreScreening Submissions",
+    healthIssues: "PreScreening Health Issues",
+    insurerOutcomes: "PreScreening Insurer Outcomes",
+    familyHistory: "PreScreening Family History"
+  }
+};
+
+/* ---- reference data ---- */
+const HEALTH_CATEGORIES = ["Musculoskeletal","Mental Health","Cardiac/Vascular","Neurological","Respiratory","Cancer/Growth","Diabetes","Sleep Apnoea","Eye/Ear","GI/Digestive","Gynaecological","Blood-Borne","Other"];
+const TREATMENT_STATUS = ["Ongoing","Resolved","Monitoring","As needed","None"];
+const OUTCOMES = ["Standard","Loaded","Exclusion","Postponed","Declined","Not assessed"];
+const LOADING_TYPES = ["None","Medical %","Medical $ per mille","Total %","Total $ per mille"];
+const INSURERS = ["Acenda","AIA","ClearView","Encompass","Futura","MetLife","NEOS","OnePath","PPS Mutual","TAL","Zurich"];
+const COVER_OUTCOMES = ["Not assessed","Standard","Loading %","Loading $","Exclusion","Loading % and Exclusion","Loading $ and Exclusion","Declined"];
+const PCT_OPTIONS = ["25","50","75","100","125","150","175","200"];
+const DOLLAR_OPTIONS = ["1","2","3","4","5","6","7","8","9","10"];
+const COVER_TYPES = [["Life","Life"],["TPD","TPD"],["Trauma","Trauma"],["IncomeProtection","Income Protection"]];
+const YESNO = ["Yes","No"];
+const GENDERS = ["Female","Male"];
+const ALCOHOL_BANDS = ["Never drunk","Don't typically drink","1-2 drinks","3-5 drinks","5-10 drinks","10-20 drinks","20-30 drinks","More than 30"];
+const EMPLOYMENT_STATUS = ["Permanent Employee","Casual Employee","Self-Employed","Business Owner","Contractor"];
+const WEIGHT_CHANGE = ["No","Yes - increased","Yes - decreased"];
+const BANKRUPTCY = ["No","Yes - bankrupt","Yes - debt arrangement"];
+
+/* ===================== SEED DATA ===================== */
+function seedData(){
+  return [
+    /* ---- CASE 1: Musculoskeletal + Cardiac, In Progress ---- */
+    {
+      id:"PS-1001", status:"In Progress",
+      complexity:"Complex", preScreeningDate:"2026-06-18", assessmentCompletedDate:"",
+      fullName:"Daniel Whitmore", dob:"1979-03-12", gender:"Male", smokerLast12m:"No",
+      livingInAustralia:"Yes", overseasLocationDetail:"", citizenOrPR:"Yes", currentVisaDetail:"", appliedForPR:"No",
+      plansToTravel2yrs:"No", travelPlansDetail:"",
+      hazardousPastimes:"No", hazardousActivityDetail:"", alcoholPerWeek:"5-10 drinks",
+      alcoholReductionAdvised:"No", alcoholAdviceDate:"", recreationalDrugs10yrs:"No", drugDetail:"",
+      currentlyWorking:"Yes", occupation:"Site Supervisor (Construction)", employer:"Hartley Build Group",
+      annualIncome:138000, hazardousDuties:"Working at height above 10 metres", dutiesBreakdown:"40% site supervision / 60% on-site labour",
+      hoursWeeksWorked:"45 hrs/week, 48 weeks/year", employmentStatus:"Permanent Employee", selfEmploymentDetail:"",
+      bonusCommissionOver20:"No", secondJob:"No", secondJobDetail:"", plansToChangeJob:"No", jobChangeDetail:"",
+      bankruptcyStatus:"No", bankruptcyDetail:"",
+      heightCm:182, weightKg:94, weightChanged12m:"No", weightChangeDetail:"",
+      highBloodPressure:"No", bpDetail:"", highCholesterol:"Yes", cholesterolDetail:"On atorvastatin 20mg; last tested 2026-05, satisfactory but slightly raised.",
+      rawForm:"Q: Have you ever been diagnosed with a heart condition?\nA: Yes — mild angina, 2023. On statin, GP managed.\n\nQ: Any back/joint injuries?\nA: Lower back disc bulge from 2021 work strain. Flares occasionally, manage with physio.\n\nQ: Do you smoke?\nA: No, never.\n\nQ: Alcohol consumption?\nA: A few beers on weekends, ~6-10 drinks/week.\n\nQ: Family history of heart disease?\nA: Father had bypass at 61.",
+      createdDate:"2026-06-18", lastUpdated:"2026-06-27",
+      healthIssues:[
+        { id:"HI-1", category:"Musculoskeletal", diagnosis:"L4/L5 disc bulge", bodyArea:"Lower back (lumbar)",
+          dateFirstSymptoms:"2021-09", dateLastSymptoms:"2026-04", treatmentStatus:"As needed",
+          occupationRelated:"Yes", timeOffWork:"3 weeks (2021)", surgery:"No", surgeryDate:"",
+          fullyRecovered:"No — intermittent flares", severity:"Mild–moderate, no radiculopathy",
+          assessorNotes:"Conservative management only. Physio 2–3x/yr. Likely exclusion on TPD/IP for lumbar spine." },
+        { id:"HI-2", category:"Cardiac/Vascular", diagnosis:"Stable angina", bodyArea:"Cardiac",
+          dateFirstSymptoms:"2023-02", dateLastSymptoms:"2026-05", treatmentStatus:"Ongoing",
+          occupationRelated:"No", timeOffWork:"None", surgery:"No", surgeryDate:"",
+          fullyRecovered:"No — managed", severity:"Mild, single-vessel, medically managed",
+          assessorNotes:"Awaiting stress echo (booked 2026-06-30). Statin compliant. Expect loading on Life/Trauma." }
+      ],
+      insurerOutcomes:defaultPanel(),
+      familyHistory:[
+        { id:"FH-1", condition:"Coronary artery disease (bypass)", familyMember:"Father", ageAtDiagnosis:61 },
+        { id:"FH-2", condition:"Type 2 Diabetes", familyMember:"Mother", ageAtDiagnosis:58 }
+      ]
+    },
+
+    /* ---- CASE 2: Mental Health + Gynaecological, In Progress ---- */
+    {
+      id:"PS-1002", status:"In Progress",
+      complexity:"Simple", preScreeningDate:"2026-06-22", assessmentCompletedDate:"",
+      fullName:"Priya Raman", dob:"1990-11-04", gender:"Female", smokerLast12m:"No",
+      livingInAustralia:"Yes", overseasLocationDetail:"", citizenOrPR:"Yes", currentVisaDetail:"Permanent Resident (subclass 189)", appliedForPR:"No",
+      plansToTravel2yrs:"Yes", travelPlansDetail:"India to visit family, approx. 3 weeks Dec 2026.",
+      hazardousPastimes:"No", hazardousActivityDetail:"", alcoholPerWeek:"Don't typically drink",
+      alcoholReductionAdvised:"No", alcoholAdviceDate:"", recreationalDrugs10yrs:"No", drugDetail:"",
+      currentlyWorking:"Yes", occupation:"Senior UX Designer", employer:"Meridian Digital",
+      annualIncome:122000, hazardousDuties:"No", dutiesBreakdown:"100% office / sedentary",
+      hoursWeeksWorked:"38 hrs/week, 48 weeks/year", employmentStatus:"Permanent Employee", selfEmploymentDetail:"",
+      bonusCommissionOver20:"No", secondJob:"No", secondJobDetail:"", plansToChangeJob:"No", jobChangeDetail:"",
+      bankruptcyStatus:"No", bankruptcyDetail:"",
+      heightCm:165, weightKg:61, weightChanged12m:"No", weightChangeDetail:"",
+      highBloodPressure:"No", bpDetail:"", highCholesterol:"No", cholesterolDetail:"",
+      rawForm:"Q: Have you sought treatment for stress, anxiety or depression?\nA: Yes, diagnosed with anxiety/depression in 2019 after a difficult period. On sertraline, very stable now.\n\nQ: Any time off work for mental health?\nA: 2 weeks in 2019. None since.\n\nQ: Any gynaecological conditions?\nA: PCOS, diagnosed 2017. Managed with diet, occasional review.\n\nQ: Do you smoke?\nA: No.\n\nQ: Exercise?\nA: Yoga and running, 4-5x/week.",
+      createdDate:"2026-06-22", lastUpdated:"2026-06-29",
+      healthIssues:[
+        { id:"HI-3", category:"Mental Health", diagnosis:"Anxiety & depression (single episode)", bodyArea:"N/A — psychological",
+          dateFirstSymptoms:"2019-03", dateLastSymptoms:"2019-11", treatmentStatus:"Monitoring",
+          occupationRelated:"No", timeOffWork:"2 weeks (2019)", surgery:"No", surgeryDate:"",
+          fullyRecovered:"Yes — stable on medication, no relapse", severity:"Moderate at onset, now mild/controlled",
+          assessorNotes:"Single episode, >2yrs stable, employed full-time. Strong case for standard or minor loading. Avoid blanket MH exclusion if possible." },
+        { id:"HI-4", category:"Gynaecological", diagnosis:"Polycystic ovary syndrome (PCOS)", bodyArea:"Reproductive",
+          dateFirstSymptoms:"2017-06", dateLastSymptoms:"2026-03", treatmentStatus:"Monitoring",
+          occupationRelated:"No", timeOffWork:"None", surgery:"No", surgeryDate:"",
+          fullyRecovered:"No — chronic, managed", severity:"Mild, lifestyle managed",
+          assessorNotes:"Common condition, low underwriting impact. May attract minor exclusion on Trauma for related complications." }
+      ],
+      insurerOutcomes:[
+        { id:"IO-1", insurerName:"AIA", dateSent:"2026-06-25", dateReceived:"", occRatingDetail:"",
+          notes:"Preliminary enquiry submitted. Awaiting underwriter response — requested GP report for MH.",
+          covers:{ Life:blankCover(), TPD:blankCover(), Trauma:blankCover(), IncomeProtection:blankCover() } },
+        { id:"IO-1b", insurerName:"NEOS", dateSent:"", dateReceived:"", occRatingDetail:"", notes:"",
+          covers:{ Life:blankCover(), TPD:blankCover(), Trauma:blankCover(), IncomeProtection:blankCover() } },
+        { id:"IO-1c", insurerName:"ClearView", dateSent:"", dateReceived:"", occRatingDetail:"", notes:"",
+          covers:{ Life:blankCover(), TPD:blankCover(), Trauma:blankCover(), IncomeProtection:blankCover() } }
+      ],
+      familyHistory:[
+        { id:"FH-3", condition:"Breast cancer", familyMember:"Aunt (maternal)", ageAtDiagnosis:52 }
+      ]
+    },
+
+    /* ---- CASE 3: COMPLETE — Cardiac + Diabetes + multiple insurer outcomes ---- */
+    {
+      id:"PS-1003", status:"Complete",
+      complexity:"Complex", preScreeningDate:"2026-05-02", assessmentCompletedDate:"2026-06-15",
+      fullName:"Gordon Albrecht", dob:"1968-07-29", gender:"Male", smokerLast12m:"No",
+      livingInAustralia:"Yes", overseasLocationDetail:"", citizenOrPR:"Yes", currentVisaDetail:"", appliedForPR:"No",
+      plansToTravel2yrs:"No", travelPlansDetail:"",
+      hazardousPastimes:"Yes", hazardousActivityDetail:"Recreational boating — amateur, ~monthly, holds boat licence.", alcoholPerWeek:"3-5 drinks",
+      alcoholReductionAdvised:"No", alcoholAdviceDate:"", recreationalDrugs10yrs:"No", drugDetail:"",
+      currentlyWorking:"Yes", occupation:"Logistics Manager", employer:"Seaboard Freight Co.",
+      annualIncome:165000, hazardousDuties:"No", dutiesBreakdown:"70% office / 30% warehouse",
+      hoursWeeksWorked:"40 hrs/week, 46 weeks/year", employmentStatus:"Permanent Employee", selfEmploymentDetail:"",
+      bonusCommissionOver20:"No", secondJob:"No", secondJobDetail:"", plansToChangeJob:"No", jobChangeDetail:"",
+      bankruptcyStatus:"No", bankruptcyDetail:"",
+      heightCm:178, weightKg:101, weightChanged12m:"No", weightChangeDetail:"",
+      highBloodPressure:"Yes", bpDetail:"On perindopril 5mg; last tested 2026-04, 132/84 (controlled).", highCholesterol:"Yes", cholesterolDetail:"On rosuvastatin 10mg; last tested 2026-04, satisfactory.",
+      rawForm:"Q: Heart conditions?\nA: Heart attack (MI) in 2016, stent placed. Stable since, cardiologist annually.\n\nQ: Diabetes?\nA: Type 2, diagnosed 2014. On metformin, HbA1c around 7.1, reasonably controlled.\n\nQ: Smoking?\nA: Quit 2015 after the scare. Was ~15/day before.\n\nQ: Weight/height?\nA: 101kg, 178cm.\n\nQ: Family history?\nA: Father heart disease, brother type 2 diabetes.\n\nQ: Time off work?\nA: 6 weeks after the heart attack in 2016, none since.",
+      createdDate:"2026-05-02", lastUpdated:"2026-06-15",
+      healthIssues:[
+        { id:"HI-5", category:"Cardiac/Vascular", diagnosis:"Myocardial infarction (1x stent)", bodyArea:"Cardiac",
+          dateFirstSymptoms:"2016-08", dateLastSymptoms:"2016-08", treatmentStatus:"Ongoing",
+          occupationRelated:"No", timeOffWork:"6 weeks (2016)", surgery:"Yes", surgeryDate:"2016-08-15",
+          fullyRecovered:"Functionally recovered, medically managed", severity:"Single-vessel, good LV function, stable 10yrs",
+          assessorNotes:"Strong stability. Drove Life loading rather than decline. IP not offered by any insurer." },
+        { id:"HI-6", category:"Diabetes", diagnosis:"Type 2 Diabetes Mellitus", bodyArea:"Endocrine/metabolic",
+          dateFirstSymptoms:"2014-05", dateLastSymptoms:"2026-04", treatmentStatus:"Ongoing",
+          occupationRelated:"No", timeOffWork:"None", surgery:"No", surgeryDate:"",
+          fullyRecovered:"No — chronic, controlled (HbA1c ~7.1)", severity:"Moderate, no end-organ damage documented",
+          assessorNotes:"Good control supports terms. Combined with cardiac, drives Trauma exclusion + IP decline." }
+      ],
+      insurerOutcomes:[
+        { id:"IO-2", insurerName:"AIA", dateSent:"2026-05-10", dateReceived:"2026-05-28",
+          occRatingDetail:"Standard",
+          notes:"Best overall terms for Life & TPD. Recommended primary insurer.",
+          covers:{
+            Life:{type:"Loading %",loadingPct:"75",loadingDollar:"",exclusion:"",declineReason:""},
+            TPD:{type:"Loading %",loadingPct:"100",loadingDollar:"",exclusion:"",declineReason:""},
+            Trauma:{type:"Loading % and Exclusion",loadingPct:"150",loadingDollar:"",exclusion:"Heart attack, angina, coronary artery disease & complications of diabetes.",declineReason:""},
+            IncomeProtection:{type:"Declined",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"Combined cardiac + diabetic history."}
+          }
+        },
+        { id:"IO-3", insurerName:"TAL", dateSent:"2026-05-10", dateReceived:"2026-06-02",
+          occRatingDetail:"Rated — loaded for manual / warehouse duties.",
+          notes:"Competitive on Trauma but heavier Life loading (per mille).",
+          covers:{
+            Life:{type:"Loading $",loadingPct:"",loadingDollar:"4",exclusion:"",declineReason:""},
+            TPD:{type:"Loading %",loadingPct:"150",loadingDollar:"",exclusion:"",declineReason:""},
+            Trauma:{type:"Exclusion",loadingPct:"",loadingDollar:"",exclusion:"Diabetic complications only.",declineReason:""},
+            IncomeProtection:{type:"Declined",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"Declined pending updated HbA1c + cardiology review."}
+          }
+        },
+        { id:"IO-4", insurerName:"Zurich", dateSent:"2026-05-12", dateReceived:"2026-05-30",
+          occRatingDetail:"Declined — all covers declined.",
+          notes:"Most conservative — not recommended.",
+          covers:{
+            Life:{type:"Declined",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"Conservative on combined cardiac + diabetic history."},
+            TPD:{type:"Declined",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"Declined."},
+            Trauma:{type:"Declined",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"Declined."},
+            IncomeProtection:{type:"Declined",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"Declined."}
+          }
+        }
+      ],
+      familyHistory:[
+        { id:"FH-4", condition:"Ischaemic heart disease", familyMember:"Father", ageAtDiagnosis:59 },
+        { id:"FH-5", condition:"Type 2 Diabetes", familyMember:"Brother", ageAtDiagnosis:47 }
+      ]
+    }
+  ];
+}
+
+/* ===================== STATE / STORAGE ===================== */
+let DB = [];
+let currentTab = "In Progress";
+let searchTerm = "";
+let openCaseId = null;
+let editingCover = null; // {ioId, key} — inline per-cover edit on detail screen
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){ DB = JSON.parse(raw); }
+    else { DB = seedData(); save(); }
+  }catch(e){ DB = seedData(); }
+  normalize();
+}
+// Fill any fields added in later versions so older saved cases don't break.
+function normalize(){
+  DB.forEach(c=>{
+    if(c.complexity===undefined) c.complexity="";
+    if(c.preScreeningDate===undefined) c.preScreeningDate="";
+    if(c.assessmentCompletedDate===undefined) c.assessmentCompletedDate="";
+  });
+}
+function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }
+function getCase(id){ return DB.find(c=>c.id===id); }
+function uid(p){ return p + "-" + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-3); }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
+function age(dob){ if(!dob)return"";const d=new Date(dob);const t=new Date("2026-07-01");let a=t.getFullYear()-d.getFullYear();if(t<new Date(t.getFullYear(),d.getMonth(),d.getDate()))a--;return a; }
+function initials(c){ const p=(c.fullName||"").trim().split(/\s+/); const a=(p[0]||"?")[0]||"?"; const b=p.length>1?(p[p.length-1][0]||""):""; return (a+b).toUpperCase(); }
+function fmtDate(d){ return d?d:"—"; }
+function val(v){ return (v===0||v)?esc(v):"—"; }
+function todayStr(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+function daysToComplete(c){ if(!c.preScreeningDate||!c.assessmentCompletedDate)return null; const a=new Date(c.preScreeningDate),b=new Date(c.assessmentCompletedDate); if(isNaN(a)||isNaN(b))return null; return Math.max(0,Math.round((b-a)/86400000)); }
+
+/* ===================== ROUTER ===================== */
+function showDashboard(){
+  openCaseId=null; editingCover=null;
+  document.getElementById("view-detail").classList.add("hidden");
+  document.getElementById("view-dashboard").classList.remove("hidden");
+  document.getElementById("crumb").innerHTML="";
+  document.body.classList.remove("viewing-case");
+  renderDashboard();
+}
+function showDetail(id){
+  if(id!==openCaseId) editingCover=null;
+  openCaseId=id;
+  document.getElementById("view-dashboard").classList.add("hidden");
+  document.getElementById("view-detail").classList.remove("hidden");
+  const c=getCase(id);
+  document.getElementById("crumb").innerHTML = `Cases / <b>${esc(c.fullName)}</b>`;
+  document.body.classList.add("viewing-case");
+  renderDetail(id);
+  window.scrollTo(0,0);
+}
+
+/* ===================== DASHBOARD ===================== */
+function renderDashboard(){
+  const total=DB.length;
+  const inProg=DB.filter(c=>c.status==="In Progress").length;
+  const complete=DB.filter(c=>c.status==="Complete").length;
+  const pending=DB.filter(c=>c.insurerOutcomes.some(io=>!io.dateReceived && io.dateSent)).length;
+  const doneDays=DB.filter(c=>c.status==="Complete").map(daysToComplete).filter(n=>n!=null);
+  const avgDays=doneDays.length?Math.round(doneDays.reduce((a,b)=>a+b,0)/doneDays.length):null;
+
+  const filtered = DB.filter(c=>c.status===currentTab).filter(c=>matchSearch(c));
+
+  let cards = filtered.map(c=>{
+    const cats=[...new Set(c.healthIssues.map(h=>h.category))];
+    const tagHtml = cats.map(t=>`<span class="chip cat">${esc(t)}</span>`).join("")
+      + `<span class="chip">${c.healthIssues.length} issue${c.healthIssues.length!==1?"s":""}</span>`
+      + `<span class="chip">${c.insurerOutcomes.length} insurer${c.insurerOutcomes.length!==1?"s":""}</span>`;
+    const cx=c.complexity||"";
+    const cxBadge = cx?`<span class="cx cx-${cx}">${esc(cx)}</span>`:`<span class="cx cx-none">Unassigned</span>`;
+    const days=daysToComplete(c);
+    const dateLine = `Pre-screening completed: <b>${c.preScreeningDate||"—"}</b>`
+      + (c.status==="Complete" && days!=null ? ` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b> · <b class="daysbadge">${days} day${days!==1?"s":""} to complete</b>` : "");
+    return `<div class="casecard" onclick="showDetail('${c.id}')">
+      <div class="avatar">${initials(c)}</div>
+      <div class="cmain">
+        <div class="cname">${esc(c.fullName)} ${cxBadge}</div>
+        <div class="cmeta">${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.occupation)}</div>
+        <div class="cmeta">${dateLine}</div>
+        <div class="ctags">${tagHtml}</div>
+      </div>
+      <div class="cright" onclick="event.stopPropagation()">
+        <div class="cxtoggle" title="Assign case complexity">
+          <button class="${cx==="Simple"?"on":""}" onclick="setComplexity('${c.id}','Simple')">Simple</button>
+          <button class="${cx==="Complex"?"on complex":""}" onclick="setComplexity('${c.id}','Complex')">Complex</button>
+        </div>
+        <span class="pill ${c.status==="Complete"?"done":"prog"}">${esc(c.status)}</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  if(!filtered.length) cards = `<div class="empty">No ${currentTab.toLowerCase()} cases${searchTerm?` matching “${esc(searchTerm)}”`:""}.</div>`;
+
+  document.getElementById("view-dashboard").innerHTML = `
+    <div class="stats">
+      <div class="stat"><div class="num">${total}</div><div class="lbl">Total cases</div></div>
+      <div class="stat"><div class="num">${inProg}</div><div class="lbl">In progress</div></div>
+      <div class="stat"><div class="num">${complete}</div><div class="lbl">Complete</div></div>
+      <div class="stat"><div class="num">${pending}</div><div class="lbl">Pending insurer response</div></div>
+      <div class="stat"><div class="num">${avgDays!=null?avgDays:"—"}</div><div class="lbl">Avg days to complete</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="searchInput" placeholder="Search by name, ID, occupation, condition…" value="${esc(searchTerm)}" oninput="onSearch(this.value)">
+      </div>
+      <div class="tabs">
+        <button class="${currentTab==="In Progress"?"active":""}" onclick="setTab('In Progress')">In Progress</button>
+        <button class="${currentTab==="Complete"?"active":""}" onclick="setTab('Complete')">Complete</button>
+      </div>
+      <button class="btn peach" onclick="openCaseModal()">+ New Case</button>
+    </div>
+    <div class="caselist">${cards}</div>
+  `;
+  const si=document.getElementById("searchInput"); if(si && document.activeElement!==si){}
+}
+function matchSearch(c){
+  if(!searchTerm)return true;
+  const t=searchTerm.toLowerCase();
+  const hay=[c.fullName,c.id,c.occupation,c.employer,
+    ...c.healthIssues.map(h=>h.category+" "+h.diagnosis),
+    ...c.insurerOutcomes.map(io=>io.insurerName)].join(" ").toLowerCase();
+  return hay.includes(t);
+}
+function onSearch(v){ searchTerm=v; renderDashboard(); document.getElementById("searchInput").focus(); }
+function setTab(t){ currentTab=t; renderDashboard(); }
+function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); save(); renderDashboard(); }
+
+/* ===================== DETAIL ===================== */
+function renderDetail(id){
+  const c=getCase(id);
+  const v=document.getElementById("view-detail");
+  v.innerHTML = `
+    <div class="printhead">
+      <b>Coastal Advisory Australia — Insurance Pre-Screening Report</b>
+      <span>${esc(c.fullName)} · ${esc(c.id)} · Generated ${todayStr()} · Status: ${esc(c.status)}</span>
+    </div>
+
+    <div class="detailhead">
+      <div class="avatar" style="width:58px;height:58px;font-size:19px">${initials(c)}</div>
+      <div style="flex:1">
+        <h1 class="big">${esc(c.fullName)}
+          <span class="pill ${c.status==="Complete"?"done":"prog"}" style="vertical-align:middle;margin-left:8px">${esc(c.status)}</span>
+          ${c.complexity?`<span class="cx cx-${c.complexity}">${esc(c.complexity)}</span>`:`<span class="cx cx-none">Unassigned</span>`}
+        </h1>
+        <div class="sub">${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.gender)} · ${esc(c.occupation)}</div>
+        <div class="sub" style="margin-top:4px">Pre-screening completed: <b>${c.preScreeningDate||"—"}</b>${(()=>{const d=daysToComplete(c);return c.status==="Complete"&&d!=null?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b> · <b class="daysbadge">${d} day${d!==1?"s":""} to complete</b>`:(c.assessmentCompletedDate?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b>`:"");})()}</div>
+      </div>
+      <div class="actions">
+        <button class="btn ghost sm" onclick="showDashboard()">← Back</button>
+        <button class="btn ghost sm" onclick="openRawForm('${c.id}')">📄 Raw form</button>
+        <button class="btn ghost sm" onclick="openCaseModal('${c.id}')">Edit details</button>
+        <button class="btn sm" onclick="toggleStatus('${c.id}')">${c.status==="Complete"?"Reopen (In Progress)":"Mark Complete"}</button>
+        <button class="btn peach sm" id="exportBtn" onclick="exportPdf('${c.id}')">⬇ Export PDF</button>
+        <button class="btn ghost sm" onclick="window.print()">🖨 Print</button>
+      </div>
+    </div>
+
+    <div class="panelgrid">
+      ${panel("Personal","👤",[
+        ["Full name",c.fullName],["Date of birth",c.dob?`${c.dob} (${age(c.dob)} yrs)`:""],
+        ["Gender",c.gender],["Smoker (last 12m)",c.smokerLast12m]
+      ])}
+      ${panel("Residency / Travel","🌏",[
+        ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],
+        ["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],
+        ["Travel/live abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
+      ])}
+      ${panel("Lifestyle","🏄",[
+        ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],
+        ["Alcohol / week",c.alcoholPerWeek],["Advised to reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],
+        ["Recreational drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]
+      ])}
+      ${panel("Occupational / Financial","💼",[
+        ["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],
+        ["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],["Employment status",c.employmentStatus],
+        ["Hazardous duties",c.hazardousDuties],["Duties breakdown",c.dutiesBreakdown],["Hours / weeks",c.hoursWeeksWorked],
+        ["Self-employment",c.selfEmploymentDetail],["Bonus/comm. >20%",c.bonusCommissionOver20],
+        ["Second job",c.secondJob],["Second job detail",c.secondJobDetail],
+        ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],
+        ["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
+      ])}
+      ${panel("General Health screening","🩺",[
+        ["Height / weight",(c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(bmi(c)?` (BMI ${bmi(c)})`:"")],
+        ["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],
+        ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],
+        ["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
+      ])}
+    </div>
+
+    ${healthSection(c)}
+    ${familySection(c)}
+    ${insurerSection(c)}
+  `;
+  document.getElementById("printReport").innerHTML = buildReport(c);
+}
+
+/* ===================== PRINT REPORT (landscape) ===================== */
+function reportFilename(c){
+  const d=new Date(); const p=n=>String(n).padStart(2,"0");
+  const ymd=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+  const name=(c.fullName||"").trim().replace(/[\\/:*?"<>|]/g,"").replace(/\s+/g," ");
+  return `${ymd} - ${name||"Client"} - Pre Assessment Report`;
+}
+function pdfCoverFill(type){
+  switch(type){
+    case "Standard": return [230,246,238];
+    case "Loading %": case "Loading $": return [255,244,231];
+    case "Exclusion": return [253,238,224];
+    case "Loading % and Exclusion": case "Loading $ and Exclusion": return [255,227,207];
+    case "Declined": return [251,233,230];
+    default: return [255,255,255];
+  }
+}
+// Native vector PDF (jsPDF + AutoTable) — precise layout, selectable text, no canvas.
+function exportPdf(caseId){
+  const c=getCase(caseId);
+  const filename=reportFilename(c)+".pdf";
+  const btn=document.getElementById("exportBtn");
+  if(!window.jspdf||!window.jspdf.jsPDF){
+    const t=document.title; document.title=reportFilename(c); window.print(); setTimeout(()=>{document.title=t;},1000); return;
+  }
+  if(btn){ btn.disabled=true; btn.textContent="Generating…"; }
+  try{
+    const { jsPDF }=window.jspdf;
+    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
+    const NAVY=[15,36,51], SKY=[222,245,255], INK=[28,43,54], MUTED=[94,107,117], LINE=[215,221,226], ALT=[242,245,247];
+    const pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight();
+    const M=10, usable=pageW-2*M;
+    const name=(c.fullName||"").trim()||"—";
+
+    // Header band
+    doc.setFillColor(...NAVY); doc.rect(0,0,pageW,20,"F");
+    doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text("Coastal Advisory Australia", M, 9);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+    doc.text("Insurance Pre-Screening Report", M, 15);
+    doc.setFont("helvetica","bold"); doc.setFontSize(13);
+    doc.text(name, pageW-M, 9, {align:"right"});
+    doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    doc.text(`${c.id} · ${age(c.dob)} yrs · ${c.gender||""} · ${c.complexity||"Unassigned"} · ${c.status} · Generated ${todayStr()}`, pageW-M, 15, {align:"right"});
+
+    // Management strip
+    let y=24;
+    doc.setFillColor(...SKY); doc.roundedRect(M,y,usable,8,1.5,1.5,"F");
+    doc.setTextColor(...INK); doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    const days=daysToComplete(c);
+    const mgmt=[`Complexity:  ${c.complexity||"Unassigned"}`,`Pre-screening completed:  ${c.preScreeningDate||"—"}`,`Assessment completed:  ${c.assessmentCompletedDate||"—"}`,`Days to complete:  ${days!=null?days+" day"+(days!==1?"s":""):"—"}`];
+    const colStep=usable/4;
+    mgmt.forEach((txt,i)=>doc.text(txt, M+4+i*colStep, y+5.2));
+    y+=13;
+
+    // Client detail panels (4 columns)
+    const gap=4, colW=(usable-3*gap)/4;
+    const panels=[
+      ["Personal",[["Full name",name],["Date of birth",c.dob?`${c.dob} (${age(c.dob)})`:""],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m]]],
+      ["Residency / Travel",[["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],["Travel/live abroad 2yrs",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]]],
+      ["Lifestyle",[["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],["Alcohol / week",c.alcoholPerWeek],["Advised reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],["Rec. drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]]],
+      ["Occupational / Financial",[["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],["Employment status",c.employmentStatus],["Hazardous duties",c.hazardousDuties],["Duties breakdown",c.dutiesBreakdown],["Hours / weeks",c.hoursWeeksWorked],["Self-employment",c.selfEmploymentDetail],["Bonus/comm >20%",c.bonusCommissionOver20],["Second job",c.secondJob],["Second job detail",c.secondJobDetail],["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]]]
+    ];
+    let panelBottom=y;
+    panels.forEach((p,i)=>{
+      const left=M+i*(colW+gap);
+      doc.autoTable({
+        startY:y, margin:{left:left, right:pageW-left-colW}, tableWidth:colW,
+        head:[[{content:p[0],colSpan:2}]],
+        body:p[1].map(([k,v])=>[k,(v===0||v)?String(v):"—"]),
+        theme:"grid",
+        styles:{fontSize:6.3,cellPadding:1,overflow:"linebreak",lineColor:LINE,lineWidth:0.1,textColor:INK,valign:"top"},
+        headStyles:{fillColor:SKY,textColor:NAVY,fontSize:6.8,fontStyle:"bold",halign:"left"},
+        columnStyles:{0:{cellWidth:colW*0.42,textColor:MUTED},1:{cellWidth:colW*0.58,fontStyle:"bold"}}
+      });
+      panelBottom=Math.max(panelBottom, doc.lastAutoTable.finalY);
+    });
+    y=panelBottom+6;
+
+    const sectionTitle=(t)=>{ if(y>pageH-24){ doc.addPage(); y=16; } doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...NAVY); doc.text(t,M,y); y+=1.5; doc.setDrawColor(...SKY); doc.setLineWidth(0.7); doc.line(M,y,pageW-M,y); y+=2.5; };
+    const commonTbl={theme:"grid",styles:{fontSize:6.6,cellPadding:1.4,overflow:"linebreak",lineColor:LINE,lineWidth:0.1,textColor:INK,valign:"top"},headStyles:{fillColor:NAVY,textColor:255,fontSize:6.2,fontStyle:"bold"},alternateRowStyles:{fillColor:ALT},margin:{left:M,right:M,top:16,bottom:14}};
+
+    // General Health screening
+    sectionTitle("General Health screening");
+    doc.autoTable({...commonTbl, startY:y,
+      head:[["Field","Detail"]],
+      body:[
+        ["Height / weight",((c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(bmi(c)?` (BMI ${bmi(c)})`:""))||"—"],
+        ["Weight changed (12m)",c.weightChanged12m||"—"],
+        ["Weight change detail",c.weightChangeDetail||"—"],
+        ["High blood pressure",c.highBloodPressure||"—"],
+        ["BP detail",c.bpDetail||"—"],
+        ["High cholesterol",c.highCholesterol||"—"],
+        ["Cholesterol detail",c.cholesterolDetail||"—"]
+      ],
+      columnStyles:{0:{cellWidth:60,fontStyle:"bold",textColor:MUTED},1:{cellWidth:usable-60}}
+    });
+    y=doc.lastAutoTable.finalY+6;
+
+    // Health Issues
+    sectionTitle(`Health Issues (${c.healthIssues.length})`);
+    doc.autoTable({...commonTbl, startY:y,
+      head:[["Category","Diagnosis / area","Symptom dates","Treatment","Occ. rel.","Time off","Surgery","Recovered","Severity / staging","Assessor notes"]],
+      body: c.healthIssues.length? c.healthIssues.map(h=>[h.category,(h.diagnosis||"")+(h.bodyArea?`\n${h.bodyArea}`:""),`${h.dateFirstSymptoms||"—"} → ${h.dateLastSymptoms||"—"}`,h.treatmentStatus||"—",h.occupationRelated||"—",h.timeOffWork||"—",h.surgery==="Yes"?("Yes"+(h.surgeryDate?` (${h.surgeryDate})`:"")):"No",h.fullyRecovered||"—",h.severity||"—",h.assessorNotes||"—"]) : [[{content:"No health issues recorded.",colSpan:10,styles:{textColor:MUTED,fontStyle:"italic"}}]],
+      columnStyles:{0:{cellWidth:22},1:{cellWidth:43},2:{cellWidth:24},3:{cellWidth:20},4:{cellWidth:15},5:{cellWidth:18},6:{cellWidth:20},7:{cellWidth:22},8:{cellWidth:38},9:{cellWidth:55}}
+    });
+    y=doc.lastAutoTable.finalY+6;
+
+    // Family History
+    sectionTitle(`Family History (${c.familyHistory.length})`);
+    doc.autoTable({...commonTbl, startY:y,
+      head:[["Condition","Family member","Age at diagnosis"]],
+      body: c.familyHistory.length? c.familyHistory.map(f=>[f.condition||"—",f.familyMember||"—",(f.ageAtDiagnosis===0||f.ageAtDiagnosis)?String(f.ageAtDiagnosis):"—"]) : [[{content:"No family history recorded.",colSpan:3,styles:{textColor:MUTED,fontStyle:"italic"}}]],
+      columnStyles:{0:{cellWidth:120},1:{cellWidth:100}}
+    });
+    y=doc.lastAutoTable.finalY+6;
+
+    // Insurer Outcomes
+    sectionTitle(`Insurer Outcomes (${c.insurerOutcomes.length})`);
+    const coverKeys=["Life","TPD","Trauma","IncomeProtection"];
+    const ins=c.insurerOutcomes;
+    const cellText=(cv)=>{ const t=(cv&&cv.type)||"Not assessed"; const d=coverDetailText(cv); return t+(d?`\n${d}`:""); };
+    doc.autoTable({...commonTbl, startY:y,
+      head:[["Insurer","Life","TPD","Trauma","Income Protection","Occupation Rating","Notes"]],
+      body: ins.length? ins.map(o=>[(o.insurerName||"—")+`\nSent ${o.dateSent||"—"} · Rec'd ${o.dateReceived||"pending"}`,cellText(o.covers.Life),cellText(o.covers.TPD),cellText(o.covers.Trauma),cellText(o.covers.IncomeProtection),o.occRatingDetail||"—",o.notes||"—"]) : [[{content:"No insurers listed.",colSpan:7,styles:{textColor:MUTED,fontStyle:"italic"}}]],
+      columnStyles:{0:{cellWidth:34,fontStyle:"bold"},1:{cellWidth:40},2:{cellWidth:40},3:{cellWidth:45},4:{cellWidth:45},5:{cellWidth:33},6:{cellWidth:40}},
+      didParseCell:(data)=>{ if(data.section==="body" && data.column.index>=1 && data.column.index<=4 && ins.length){ const o=ins[data.row.index]; if(o){ data.cell.styles.fillColor=pdfCoverFill(o.covers[coverKeys[data.column.index-1]]&&o.covers[coverKeys[data.column.index-1]].type); } } }
+    });
+    y=doc.lastAutoTable.finalY+6;
+
+    // Raw Form
+    sectionTitle("Raw Form Responses");
+    doc.setFont("courier","normal"); doc.setFontSize(7.5); doc.setTextColor(...INK);
+    doc.splitTextToSize(c.rawForm||"—", usable-2).forEach(ln=>{ if(y>pageH-14){ doc.addPage(); y=16; } doc.text(ln, M, y); y+=3.4; });
+
+    // Footer + page numbers
+    const total=doc.internal.getNumberOfPages();
+    for(let p=1;p<=total;p++){
+      doc.setPage(p);
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M,pageH-9,pageW-M,pageH-9);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...MUTED);
+      doc.text("Confidential — Coastal Advisory Australia · Insurance Pre-Screening", M, pageH-5);
+      doc.text(`${c.id} · ${name}    Page ${p} of ${total}`, pageW-M, pageH-5, {align:"right"});
+    }
+    doc.save(filename);
+  }catch(e){ alert("PDF export failed: "+e.message); }
+  finally{ if(btn){ btn.disabled=false; btn.textContent="⬇ Export PDF"; } }
+}
+function coverDetailText(cv){
+  if(!cv) return "";
+  switch(cv.type){
+    case "Loading %": return cv.loadingPct?`${cv.loadingPct}% loading`:"";
+    case "Loading $": return cv.loadingDollar?`$${cv.loadingDollar} per mille`:"";
+    case "Exclusion": return cv.exclusion||"";
+    case "Loading % and Exclusion": return `${cv.loadingPct?cv.loadingPct+"% loading":""}${cv.exclusion?(cv.loadingPct?" · ":"")+cv.exclusion:""}`;
+    case "Loading $ and Exclusion": return `${cv.loadingDollar?"$"+cv.loadingDollar+" per mille":""}${cv.exclusion?(cv.loadingDollar?" · ":"")+cv.exclusion:""}`;
+    case "Declined": return cv.declineReason||"";
+    default: return "";
+  }
+}
+function coverBadge(cv){
+  const t=(cv&&cv.type)||"Not assessed";
+  const d=coverDetailText(cv);
+  return `<div class="rcell" style="background:${coverTint(t)}"><b>${esc(t)}</b>${d?`<div class="rcd">${esc(d)}</div>`:""}</div>`;
+}
+function repPanel(title,rows){
+  const body=rows.map(([k,v])=>`<tr><td class="rk">${esc(k)}</td><td class="rv">${(v===0||v)?esc(v):"—"}</td></tr>`).join("");
+  return `<div class="rep-panel"><h4>${esc(title)}</h4><table class="rep-kv">${body}</table></div>`;
+}
+function buildReport(c){
+  const cats=[...new Set(c.healthIssues.map(h=>h.category))];
+  // health issues table
+  let hi = c.healthIssues.map(h=>`<tr>
+    <td><b>${esc(h.category)}</b></td>
+    <td>${val(h.diagnosis)}<div class="rcd">${val(h.bodyArea)}</div></td>
+    <td>${val(h.dateFirstSymptoms)} → ${val(h.dateLastSymptoms)}</td>
+    <td>${val(h.treatmentStatus)}</td>
+    <td>${val(h.occupationRelated)}</td>
+    <td>${val(h.timeOffWork)}</td>
+    <td>${h.surgery==="Yes"?("Yes"+(h.surgeryDate?` (${esc(h.surgeryDate)})`:"")):"No"}</td>
+    <td>${val(h.fullyRecovered)}</td>
+    <td>${val(h.severity)}</td>
+    <td>${val(h.assessorNotes)}</td>
+  </tr>`).join("");
+  if(!c.healthIssues.length) hi=`<tr><td colspan="10" class="rep-empty">No health issues recorded.</td></tr>`;
+  // family history
+  let fh = c.familyHistory.map(f=>`<tr><td><b>${esc(f.condition)}</b></td><td>${val(f.familyMember)}</td><td>${val(f.ageAtDiagnosis)}</td></tr>`).join("");
+  if(!c.familyHistory.length) fh=`<tr><td colspan="3" class="rep-empty">No family history recorded.</td></tr>`;
+  // insurers
+  let io = c.insurerOutcomes.map(o=>`<tr>
+    <td><span class="rins">${esc(o.insurerName)||"—"}<small>Sent ${o.dateSent||"—"} · Rec'd ${o.dateReceived||"pending"}</small></span></td>
+    <td>${coverBadge(o.covers.Life)}</td>
+    <td>${coverBadge(o.covers.TPD)}</td>
+    <td>${coverBadge(o.covers.Trauma)}</td>
+    <td>${coverBadge(o.covers.IncomeProtection)}</td>
+    <td>${o.occRatingDetail?esc(o.occRatingDetail):"—"}</td>
+    <td>${val(o.notes)}</td>
+  </tr>`).join("");
+  if(!c.insurerOutcomes.length) io=`<tr><td colspan="7" class="rep-empty">No insurers listed.</td></tr>`;
+
+  return `
+    <div class="rep-header">
+      <div class="rep-logo">CA</div>
+      <div class="rep-brand"><b>Coastal Advisory Australia</b><span>Insurance Pre-Screening Report</span></div>
+      <div class="rep-meta">
+        <div class="rep-name">${esc(c.fullName)}<span class="rep-status ${c.status==="Complete"?"done":"prog"}">${esc(c.status)}</span></div>
+        <div class="rep-sub">${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.gender)} · ${esc(c.complexity||"Unassigned")} · Generated ${todayStr()}</div>
+      </div>
+    </div>
+
+    <div class="rep-mgmt">
+      <span>Complexity: <b>${esc(c.complexity||"Unassigned")}</b></span>
+      <span>Pre-screening completed: <b>${c.preScreeningDate||"—"}</b></span>
+      <span>Assessment completed: <b>${c.assessmentCompletedDate||"—"}</b></span>
+      <span>Days to complete: <b>${(()=>{const d=daysToComplete(c);return d!=null?d+" day"+(d!==1?"s":""):"—";})()}</b></span>
+    </div>
+
+    <div class="rep-panels">
+      ${repPanel("Personal",[
+        ["Full name",c.fullName],["Date of birth",`${c.dob||""}${c.dob?` (${age(c.dob)} yrs)`:""}`],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m]
+      ])}
+      ${repPanel("Residency / Travel",[
+        ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],["Applied for PR",c.appliedForPR],
+        ["Overseas location",c.overseasLocationDetail],["Travel/live abroad 2yrs",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
+      ])}
+      ${repPanel("Lifestyle",[
+        ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],["Alcohol / week",c.alcoholPerWeek],
+        ["Advised reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],["Rec. drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]
+      ])}
+      ${repPanel("Occupational / Financial",[
+        ["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],
+        ["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],["Employment status",c.employmentStatus],
+        ["Hazardous duties",c.hazardousDuties],["Duties breakdown",c.dutiesBreakdown],["Hours / weeks",c.hoursWeeksWorked],
+        ["Self-employment",c.selfEmploymentDetail],["Bonus/comm >20%",c.bonusCommissionOver20],["Second job",c.secondJob],["Second job detail",c.secondJobDetail],
+        ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
+      ])}
+      ${repPanel("General Health screening",[
+        ["Height / weight",(c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(bmi(c)?` (BMI ${bmi(c)})`:"")],
+        ["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],
+        ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
+      ])}
+    </div>
+
+    <div class="rep-sec">
+      <h3>Health Issues (${c.healthIssues.length})</h3>
+      <table class="rep-tbl"><thead><tr>
+        <th style="width:9%">Category</th><th style="width:15%">Diagnosis / area</th><th style="width:9%">Symptom dates</th><th style="width:8%">Treatment</th><th style="width:6%">Occ. related</th><th style="width:7%">Time off</th><th style="width:8%">Surgery</th><th style="width:9%">Recovered</th><th style="width:14%">Severity / staging</th><th>Assessor notes</th>
+      </tr></thead><tbody>${hi}</tbody></table>
+    </div>
+
+    <div class="rep-sec">
+      <h3>Family History (${c.familyHistory.length})</h3>
+      <table class="rep-tbl"><thead><tr><th style="width:34%">Condition</th><th style="width:33%">Family member</th><th>Age at diagnosis</th></tr></thead><tbody>${fh}</tbody></table>
+    </div>
+
+    <div class="rep-sec">
+      <h3>Insurer Outcomes (${c.insurerOutcomes.length})</h3>
+      <table class="rep-tbl"><thead><tr>
+        <th style="width:15%">Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Occupation Rating</th><th style="width:16%">Notes</th>
+      </tr></thead><tbody>${io}</tbody></table>
+    </div>
+
+    <div class="rep-sec">
+      <h3>Raw Form Responses</h3>
+      <div class="rep-raw">${esc(c.rawForm)||"—"}</div>
+    </div>
+
+    <div class="rep-foot"><span>Confidential — Coastal Advisory Australia · Insurance Pre-Screening</span><span>${esc(c.id)} · ${esc(c.fullName)}</span></div>
+  `;
+}
+
+function bmi(c){ if(!c.heightCm||!c.weightKg)return""; const m=c.heightCm/100; return (c.weightKg/(m*m)).toFixed(1); }
+
+function panel(title,icon,rows){
+  const body = rows.map(([k,val])=>`<dt>${esc(k)}</dt><dd>${(val===0||val)?esc(val):'<span class="muted">—</span>'}</dd>`).join("");
+  return `<div class="panel"><h3>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
+}
+
+/* ---- Health Issues ---- */
+function healthSection(c){
+  let rows = c.healthIssues.map(h=>`
+    <tr>
+      <td><span class="chip cat">${esc(h.category)}</span></td>
+      <td><b>${esc(h.diagnosis)}</b><div class="muted">${esc(h.bodyArea)}</div></td>
+      <td>${val(h.dateFirstSymptoms)} → ${val(h.dateLastSymptoms)}</td>
+      <td>${val(h.treatmentStatus)}</td>
+      <td>${val(h.severity)}</td>
+      <td>${h.surgery==="Yes"?("Yes "+(h.surgeryDate?`(${esc(h.surgeryDate)})`:"")):"No"}</td>
+      <td>${val(h.fullyRecovered)}</td>
+      <td class="muted">${val(h.assessorNotes)}</td>
+      <td class="no-print"><div class="rowact">
+        <button class="icnbtn" onclick="openHealthModal('${c.id}','${h.id}')">Edit</button>
+        <button class="icnbtn" onclick="delHealth('${c.id}','${h.id}')">Del</button>
+      </div></td>
+    </tr>`).join("");
+  if(!c.healthIssues.length) rows=`<tr><td colspan="9" class="muted" style="padding:18px;text-align:center">No health issues recorded.</td></tr>`;
+  return `<div class="section">
+    <div class="shead"><h2>Health Issues</h2><button class="btn peach sm" onclick="openHealthModal('${c.id}')">+ Add issue</button></div>
+    <div class="sbody" style="overflow-x:auto">
+      <table class="grid">
+        <thead><tr><th>Category</th><th>Diagnosis / area</th><th>Symptom dates</th><th>Treatment</th><th>Severity / staging</th><th>Surgery</th><th>Recovered</th><th>Assessor notes</th><th class="no-print"></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div></div>`;
+}
+
+/* ---- Insurer Outcomes ---- */
+function coverCell(caseId,ioId,key,cv){
+  cv=cv||blankCover();
+  const t=cv.type||"Not assessed";
+  const needPct = t==="Loading %"||t==="Loading % and Exclusion";
+  const needDollar = t==="Loading $"||t==="Loading $ and Exclusion";
+  const needExcl = t==="Exclusion"||t==="Loading % and Exclusion"||t==="Loading $ and Exclusion";
+  const needDecline = t==="Declined";
+  const setF=(f)=>`onchange="setCoverField('${caseId}','${ioId}','${key}','${f}',this.value)"`;
+  let extra="";
+  if(needPct) extra+=`<select class="mini" ${setF('loadingPct')}><option value="">— loading % —</option>${PCT_OPTIONS.map(p=>`<option value="${p}" ${p===cv.loadingPct?'selected':''}>${p}%</option>`).join("")}</select>`;
+  if(needDollar) extra+=`<select class="mini" ${setF('loadingDollar')}><option value="">— $ per mille —</option>${DOLLAR_OPTIONS.map(d=>`<option value="${d}" ${d===cv.loadingDollar?'selected':''}>$${d} per mille</option>`).join("")}</select>`;
+  if(needExcl) extra+=`<input class="mini" type="text" value="${esc(cv.exclusion)}" placeholder="Exclusion wording…" ${setF('exclusion')}>`;
+  if(needDecline) extra+=`<input class="mini" type="text" value="${esc(cv.declineReason)}" placeholder="Decline reason…" ${setF('declineReason')}>`;
+  const tint=coverTint(t);
+  return `<td class="covercell">
+    <select class="celltype" style="background:${tint}" onchange="setCoverType('${caseId}','${ioId}','${key}',this.value)">
+      ${COVER_OUTCOMES.map(o=>`<option ${o===t?'selected':''}>${o}</option>`).join("")}
+    </select>${extra}
+  </td>`;
+}
+function coverTint(t){
+  if(t==="Standard")return"#e6f6ee";
+  if(t==="Loading %"||t==="Loading $")return"#fff4e7";
+  if(t==="Exclusion")return"#fdeee0";
+  if(t==="Loading % and Exclusion"||t==="Loading $ and Exclusion")return"#ffe3cf";
+  if(t==="Declined")return"#fbe9e6";
+  return"#ffffff";
+}
+function insurerSection(c){
+  const rows = c.insurerOutcomes.map(io=>{
+    return `<tr>
+      <td class="insurercell">
+        <input class="nm" list="insurerList" value="${esc(io.insurerName)}" placeholder="Insurer…" autocomplete="off"
+          onchange="setInsurerField('${c.id}','${io.id}','insurerName',this.value)">
+        <div class="dates">
+          <label>Sent<input type="date" value="${esc(io.dateSent)}" onchange="setInsurerField('${c.id}','${io.id}','dateSent',this.value)"></label>
+          <label>Rec'd<input type="date" value="${esc(io.dateReceived)}" onchange="setInsurerField('${c.id}','${io.id}','dateReceived',this.value)"></label>
+        </div>
+      </td>
+      ${coverCell(c.id,io.id,'Life',io.covers.Life)}
+      ${coverCell(c.id,io.id,'TPD',io.covers.TPD)}
+      ${coverCell(c.id,io.id,'Trauma',io.covers.Trauma)}
+      ${coverCell(c.id,io.id,'IncomeProtection',io.covers.IncomeProtection)}
+      <td class="occ">
+        <textarea class="notes" placeholder="Occupation rating…" onchange="setInsurerField('${c.id}','${io.id}','occRatingDetail',this.value)">${esc(io.occRatingDetail)}</textarea>
+      </td>
+      <td class="notes"><textarea class="notes" placeholder="Notes…" onchange="setInsurerField('${c.id}','${io.id}','notes',this.value)">${esc(io.notes)}</textarea></td>
+      <td class="no-print"><button class="icnbtn" onclick="delInsurer('${c.id}','${io.id}')">Del</button></td>
+    </tr>`;
+  }).join("");
+  const body = c.insurerOutcomes.length
+    ? `<div class="insurerscroll"><table class="insurertbl">
+        <thead><tr><th>Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Occupation Rating</th><th>Notes</th><th class="no-print"></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+        <datalist id="insurerList">${INSURERS.map(x=>`<option value="${esc(x)}"></option>`).join("")}</datalist>`
+    : `<div class="empty">No insurers listed. Use “+ Standard panel” to load the full panel.</div>`;
+  return `<div class="section">
+    <div class="shead"><h2>Insurer Outcomes</h2>
+      <button class="btn ghost sm" onclick="addStandardPanel('${c.id}')">+ Standard panel</button>
+      <button class="btn peach sm" onclick="addBlankInsurer('${c.id}')">+ Add insurer</button>
+    </div>
+    <div class="sbody">${body}</div>
+  </div>`;
+}
+
+/* ---- Family History ---- */
+function familySection(c){
+  let rows=c.familyHistory.map(f=>`<tr>
+    <td><b>${esc(f.condition)}</b></td><td>${esc(f.familyMember)}</td><td>${val(f.ageAtDiagnosis)}</td>
+    <td class="no-print"><div class="rowact">
+      <button class="icnbtn" onclick="openFamilyModal('${c.id}','${f.id}')">Edit</button>
+      <button class="icnbtn" onclick="delFamily('${c.id}','${f.id}')">Del</button>
+    </div></td></tr>`).join("");
+  if(!c.familyHistory.length) rows=`<tr><td colspan="4" class="muted" style="padding:18px;text-align:center">No family history recorded.</td></tr>`;
+  return `<div class="section">
+    <div class="shead"><h2>Family History</h2><button class="btn peach sm" onclick="openFamilyModal('${c.id}')">+ Add entry</button></div>
+    <div class="sbody" style="overflow-x:auto"><table class="grid">
+      <thead><tr><th>Condition</th><th>Family member</th><th>Age at diagnosis</th><th class="no-print"></th></tr></thead>
+      <tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+
+/* ===================== MODAL HELPERS ===================== */
+function openModal(title,bodyHtml,footHtml){
+  document.getElementById("modalTitle").textContent=title;
+  document.getElementById("modalBody").innerHTML=bodyHtml;
+  document.getElementById("modalFoot").innerHTML=footHtml;
+  document.getElementById("modalbg").classList.add("open");
+}
+function closeModal(){ document.getElementById("modalbg").classList.remove("open"); }
+document.getElementById("modalbg").addEventListener("mousedown",e=>{ if(e.target.id==="modalbg")closeModal(); });
+function fld(label,id,value,type="text",opts){
+  if(type==="select"){
+    const o=opts.map(x=>`<option ${x===value?"selected":""}>${esc(x)}</option>`).join("");
+    return `<div class="field"><label>${esc(label)}</label><select id="${id}">${o}</select></div>`;
+  }
+  if(type==="textarea") return `<div class="field full"><label>${esc(label)}</label><textarea id="${id}">${esc(value||"")}</textarea></div>`;
+  return `<div class="field"><label>${esc(label)}</label><input id="${id}" type="${type}" value="${esc(value==null?"":value)}"></div>`;
+}
+function gv(id){ const e=document.getElementById(id); return e?e.value.trim():""; }
+
+/* ===================== CASE (Submission) MODAL ===================== */
+function openCaseModal(id){
+  const c=id?getCase(id):{};
+  const isNew=!id;
+  const body=`<div class="formgrid">
+    <fieldset class="coverset"><legend>Case Management</legend><div class="formgrid">
+      ${fld("Complexity","f_complexity",c.complexity||"","select",["","Simple","Complex"])}
+      ${fld("Status","f_status",c.status||"In Progress","select",["In Progress","Complete"])}
+      ${fld("Pre-screening completed (client)","f_preScreeningDate",c.preScreeningDate,"date")}
+      ${fld("Assessment completed","f_assessmentCompletedDate",c.assessmentCompletedDate,"date")}
+    </div></fieldset>
+    <fieldset class="coverset"><legend>Personal</legend><div class="formgrid">
+      ${fld("Full name","f_fullName",c.fullName)}
+      ${fld("Date of birth","f_dob",c.dob,"date")}
+      ${fld("Gender","f_gender",c.gender||"","select",["",...GENDERS])}
+      ${fld("Smoker (last 12m)","f_smokerLast12m",c.smokerLast12m||"","select",["",...YESNO])}
+    </div></fieldset>
+    <fieldset class="coverset"><legend>Residency / Travel</legend><div class="formgrid">
+      ${fld("Living in Australia","f_livingInAustralia",c.livingInAustralia||"","select",["",...YESNO])}
+      ${fld("Citizen or PR","f_citizenOrPR",c.citizenOrPR||"","select",["",...YESNO])}
+      ${fld("Applied for PR","f_appliedForPR",c.appliedForPR||"","select",["",...YESNO])}
+      ${fld("Plans to travel/live abroad (2yrs)","f_plansToTravel2yrs",c.plansToTravel2yrs||"","select",["",...YESNO])}
+      ${fld("Current visa detail","f_currentVisaDetail",c.currentVisaDetail,"textarea")}
+      ${fld("Overseas location detail","f_overseasLocationDetail",c.overseasLocationDetail,"textarea")}
+      ${fld("Travel plans detail","f_travelPlansDetail",c.travelPlansDetail,"textarea")}
+    </div></fieldset>
+    <fieldset class="coverset"><legend>Lifestyle</legend><div class="formgrid">
+      ${fld("Hazardous pastimes","f_hazardousPastimes",c.hazardousPastimes||"","select",["",...YESNO])}
+      ${fld("Alcohol per week","f_alcoholPerWeek",c.alcoholPerWeek||"","select",["",...ALCOHOL_BANDS])}
+      ${fld("Advised to reduce alcohol","f_alcoholReductionAdvised",c.alcoholReductionAdvised||"","select",["",...YESNO])}
+      ${fld("Alcohol advice date","f_alcoholAdviceDate",c.alcoholAdviceDate)}
+      ${fld("Recreational drugs (10yrs)","f_recreationalDrugs10yrs",c.recreationalDrugs10yrs||"","select",["",...YESNO])}
+      ${fld("Hazardous activity detail","f_hazardousActivityDetail",c.hazardousActivityDetail,"textarea")}
+      ${fld("Drug detail","f_drugDetail",c.drugDetail,"textarea")}
+    </div></fieldset>
+    <fieldset class="coverset"><legend>Occupational / Financial</legend><div class="formgrid">
+      ${fld("Currently working","f_currentlyWorking",c.currentlyWorking||"","select",["",...YESNO])}
+      ${fld("Occupation","f_occupation",c.occupation)}
+      ${fld("Employer","f_employer",c.employer)}
+      ${fld("Annual income ($)","f_annualIncome",c.annualIncome,"number")}
+      ${fld("Employment status","f_employmentStatus",c.employmentStatus||"","select",["",...EMPLOYMENT_STATUS])}
+      ${fld("Bonus/commission >20%","f_bonusCommissionOver20",c.bonusCommissionOver20||"","select",["",...YESNO])}
+      ${fld("Second job","f_secondJob",c.secondJob||"","select",["",...YESNO])}
+      ${fld("Plans to change job","f_plansToChangeJob",c.plansToChangeJob||"","select",["",...YESNO])}
+      ${fld("Bankruptcy status","f_bankruptcyStatus",c.bankruptcyStatus||"","select",["",...BANKRUPTCY])}
+      ${fld("Hazardous duties","f_hazardousDuties",c.hazardousDuties,"textarea")}
+      ${fld("Duties breakdown","f_dutiesBreakdown",c.dutiesBreakdown,"textarea")}
+      ${fld("Hours / weeks worked","f_hoursWeeksWorked",c.hoursWeeksWorked,"textarea")}
+      ${fld("Self-employment detail","f_selfEmploymentDetail",c.selfEmploymentDetail,"textarea")}
+      ${fld("Second job detail","f_secondJobDetail",c.secondJobDetail,"textarea")}
+      ${fld("Job change detail","f_jobChangeDetail",c.jobChangeDetail,"textarea")}
+      ${fld("Bankruptcy detail","f_bankruptcyDetail",c.bankruptcyDetail,"textarea")}
+    </div></fieldset>
+    <fieldset class="coverset"><legend>General Health screening</legend><div class="formgrid">
+      ${fld("Height (cm)","f_heightCm",c.heightCm,"number")}
+      ${fld("Weight (kg)","f_weightKg",c.weightKg,"number")}
+      ${fld("Weight changed (12m)","f_weightChanged12m",c.weightChanged12m||"","select",["",...WEIGHT_CHANGE])}
+      ${fld("High blood pressure","f_highBloodPressure",c.highBloodPressure||"","select",["",...YESNO])}
+      ${fld("High cholesterol","f_highCholesterol",c.highCholesterol||"","select",["",...YESNO])}
+      ${fld("Weight change detail","f_weightChangeDetail",c.weightChangeDetail,"textarea")}
+      ${fld("BP detail","f_bpDetail",c.bpDetail,"textarea")}
+      ${fld("Cholesterol detail","f_cholesterolDetail",c.cholesterolDetail,"textarea")}
+    </div></fieldset>
+    ${fld("Raw form responses","f_rawForm",c.rawForm,"textarea")}
+  </div>`;
+  openModal(isNew?"New Pre-Screening Case":"Edit Case Details", body,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="saveCase('${id||""}')">${isNew?"Create case":"Save"}</button>`);
+}
+function saveCase(id){
+  const fields=["complexity","status","preScreeningDate","assessmentCompletedDate",
+    "fullName","dob","gender","smokerLast12m",
+    "livingInAustralia","citizenOrPR","currentVisaDetail","appliedForPR","overseasLocationDetail","plansToTravel2yrs","travelPlansDetail",
+    "hazardousPastimes","hazardousActivityDetail","alcoholPerWeek","alcoholReductionAdvised","alcoholAdviceDate","recreationalDrugs10yrs","drugDetail",
+    "currentlyWorking","occupation","employer","annualIncome","employmentStatus","hazardousDuties","dutiesBreakdown","hoursWeeksWorked",
+    "selfEmploymentDetail","bonusCommissionOver20","secondJob","secondJobDetail","plansToChangeJob","jobChangeDetail","bankruptcyStatus","bankruptcyDetail",
+    "heightCm","weightKg","weightChanged12m","weightChangeDetail","highBloodPressure","bpDetail","highCholesterol","cholesterolDetail",
+    "rawForm"];
+  if(!gv("f_fullName")){ alert("Full name is required."); return; }
+  let c;
+  if(id){ c=getCase(id); }
+  else { c={id:uid("PS"),status:"In Progress",createdDate:todayStr(),healthIssues:[],insurerOutcomes:defaultPanel(),familyHistory:[]}; DB.unshift(c); }
+  fields.forEach(f=>{ c[f]=gv("f_"+f); });
+  ["annualIncome","heightCm","weightKg"].forEach(n=>{ c[n]=c[n]?Number(c[n]):""; });
+  if(!c.status) c.status="In Progress";
+  c.lastUpdated=todayStr();
+  save(); closeModal();
+  if(id) renderDetail(id); else showDetail(c.id);
+}
+function toggleStatus(id){
+  const c=getCase(id);
+  if(c.status==="Complete"){ c.status="In Progress"; }
+  else { c.status="Complete"; c.assessmentCompletedDate=c.assessmentCompletedDate||todayStr(); }
+  c.lastUpdated=todayStr(); save(); renderDetail(id);
+}
+
+/* ===================== HEALTH ISSUE MODAL ===================== */
+function openHealthModal(caseId,hid){
+  const c=getCase(caseId);
+  const h=hid?c.healthIssues.find(x=>x.id===hid):{};
+  const body=`<div class="formgrid">
+    ${fld("Category","h_category",h.category||"Musculoskeletal","select",HEALTH_CATEGORIES)}
+    ${fld("Diagnosis","h_diagnosis",h.diagnosis)}
+    ${fld("Body area","h_bodyArea",h.bodyArea)}
+    ${fld("Date first symptoms","h_dateFirstSymptoms",h.dateFirstSymptoms)}
+    ${fld("Date last symptoms","h_dateLastSymptoms",h.dateLastSymptoms)}
+    ${fld("Treatment status","h_treatmentStatus",h.treatmentStatus||"Ongoing","select",TREATMENT_STATUS)}
+    ${fld("Occupation related","h_occupationRelated",h.occupationRelated||"No","select",["No","Yes"])}
+    ${fld("Time off work","h_timeOffWork",h.timeOffWork)}
+    ${fld("Surgery","h_surgery",h.surgery||"No","select",["No","Yes"])}
+    ${fld("Surgery date","h_surgeryDate",h.surgeryDate,"date")}
+    ${fld("Fully recovered","h_fullyRecovered",h.fullyRecovered)}
+    ${fld("Severity / staging","h_severity",h.severity)}
+    ${fld("Assessor notes","h_assessorNotes",h.assessorNotes,"textarea")}
+  </div>`;
+  openModal(hid?"Edit Health Issue":"Add Health Issue", body,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="saveHealth('${caseId}','${hid||""}')">Save</button>`);
+}
+function saveHealth(caseId,hid){
+  const c=getCase(caseId);
+  const fields=["category","diagnosis","bodyArea","dateFirstSymptoms","dateLastSymptoms","treatmentStatus","occupationRelated","timeOffWork","surgery","surgeryDate","fullyRecovered","severity","assessorNotes"];
+  let h;
+  if(hid){ h=c.healthIssues.find(x=>x.id===hid); } else { h={id:uid("HI")}; c.healthIssues.push(h); }
+  fields.forEach(f=>{ h[f]=gv("h_"+f); });
+  c.lastUpdated="2026-07-01"; save(); closeModal(); renderDetail(caseId);
+}
+function delHealth(caseId,hid){ if(!confirm("Delete this health issue?"))return; const c=getCase(caseId); c.healthIssues=c.healthIssues.filter(x=>x.id!==hid); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+
+/* ===================== INSURER PANEL HELPERS ===================== */
+function blankCover(){ return {type:"Not assessed",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:""}; }
+function newInsurerCard(name){ return {id:uid("IO"),insurerName:name,dateSent:"",dateReceived:"",occRatingDetail:"",notes:"",covers:{Life:blankCover(),TPD:blankCover(),Trauma:blankCover(),IncomeProtection:blankCover()}}; }
+function defaultPanel(){ return INSURERS.map(newInsurerCard); }
+function addStandardPanel(caseId){
+  const c=getCase(caseId); const have=new Set(c.insurerOutcomes.map(io=>io.insurerName));
+  const missing=INSURERS.filter(n=>!have.has(n));
+  if(!missing.length){ alert("All standard insurers are already listed."); return; }
+  missing.forEach(n=>c.insurerOutcomes.push(newInsurerCard(n)));
+  c.lastUpdated="2026-07-01"; save(); renderDetail(caseId);
+}
+
+/* ===================== RAW FORM MODAL ===================== */
+function openRawForm(caseId){
+  const c=getCase(caseId);
+  openModal(`Raw Form Responses — ${esc(c.fullName)}`,
+    `<div class="rawbox" style="max-height:60vh">${esc(c.rawForm)||'<span class="muted">No raw form captured.</span>'}</div>`,
+    `<button class="btn ghost" onclick="openCaseModal('${caseId}')">Edit in case details</button><button class="btn" onclick="closeModal()">Close</button>`);
+}
+
+/* ===================== INLINE INSURER EDITING ===================== */
+function addBlankInsurer(caseId){ const c=getCase(caseId); c.insurerOutcomes.push(newInsurerCard("")); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+function delInsurer(caseId,iid){ if(!confirm("Delete this insurer?"))return; const c=getCase(caseId); c.insurerOutcomes=c.insurerOutcomes.filter(x=>x.id!==iid); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+// text/date/select value change — save without re-render (keeps focus)
+function setInsurerField(caseId,ioId,field,val){ const io=getCase(caseId).insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io[field]=val; getCase(caseId).lastUpdated="2026-07-01"; save(); }
+function setCoverField(caseId,ioId,key,field,val){ const io=getCase(caseId).insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key][field]=val; getCase(caseId).lastUpdated="2026-07-01"; save(); }
+// outcome type change — re-render so the right conditional inputs show
+function setCoverType(caseId,ioId,key,val){ const io=getCase(caseId).insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key].type=val; getCase(caseId).lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+
+/* ===================== FAMILY HISTORY MODAL ===================== */
+function openFamilyModal(caseId,fid){
+  const c=getCase(caseId);
+  const f=fid?c.familyHistory.find(x=>x.id===fid):{};
+  const body=`<div class="formgrid">
+    ${fld("Condition","fm_condition",f.condition)}
+    ${fld("Family member","fm_familyMember",f.familyMember)}
+    ${fld("Age at diagnosis","fm_ageAtDiagnosis",f.ageAtDiagnosis,"number")}
+  </div>`;
+  openModal(fid?"Edit Family History":"Add Family History", body,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn" onclick="saveFamily('${caseId}','${fid||""}')">Save</button>`);
+}
+function saveFamily(caseId,fid){
+  const c=getCase(caseId);
+  let f;
+  if(fid){ f=c.familyHistory.find(x=>x.id===fid); } else { f={id:uid("FH")}; c.familyHistory.push(f); }
+  f.condition=gv("fm_condition"); f.familyMember=gv("fm_familyMember"); f.ageAtDiagnosis=gv("fm_ageAtDiagnosis")?Number(gv("fm_ageAtDiagnosis")):"";
+  c.lastUpdated="2026-07-01"; save(); closeModal(); renderDetail(caseId);
+}
+function delFamily(caseId,fid){ if(!confirm("Delete this entry?"))return; const c=getCase(caseId); c.familyHistory=c.familyHistory.filter(x=>x.id!==fid); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+
+/* ===================== MSAL AUTH + GRAPH (phase 2a: connect + verify) ===================== */
+let msalApp=null;
+function initMsal(){
+  if(msalApp) return msalApp;
+  if(typeof msal==="undefined") throw new Error("MSAL library not loaded (msal-browser.min.js missing).");
+  msalApp = new msal.PublicClientApplication({
+    auth:{ clientId:GRAPH_CONFIG.clientId, authority:"https://login.microsoftonline.com/"+GRAPH_CONFIG.tenantId, redirectUri: window.location.origin + window.location.pathname },
+    cache:{ cacheLocation:"localStorage" }
+  });
+  return msalApp;
+}
+async function signIn(){
+  initMsal();
+  const existing = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0];
+  if(existing){ msalApp.setActiveAccount(existing); return existing; }
+  const res = await msalApp.loginPopup({ scopes: GRAPH_CONFIG.scopes });
+  msalApp.setActiveAccount(res.account);
+  return res.account;
+}
+async function getToken(){
+  initMsal();
+  const acct = msalApp.getActiveAccount() || msalApp.getAllAccounts()[0] || await signIn();
+  try{ return (await msalApp.acquireTokenSilent({ scopes:GRAPH_CONFIG.scopes, account:acct })).accessToken; }
+  catch(e){ return (await msalApp.acquireTokenPopup({ scopes:GRAPH_CONFIG.scopes })).accessToken; }
+}
+async function graphGet(path){
+  const token = await getToken();
+  const r = await fetch("https://graph.microsoft.com/v1.0"+path, { headers:{ Authorization:"Bearer "+token } });
+  if(!r.ok) throw new Error("Graph "+r.status+": "+(await r.text()).slice(0,400));
+  return r.json();
+}
+async function runConnectionTest(){
+  const log=[];
+  openModal("SharePoint Connection Test","<div class='muted'>Starting…</div>","<button class='btn ghost' onclick='closeModal()'>Close</button>");
+  const body=document.getElementById("modalBody");
+  const show=()=>{ body.innerHTML='<div class="rawbox" style="max-height:62vh">'+esc(log.join("\n"))+'</div>'; };
+  const line=(t)=>{ log.push(t); show(); };
+  try{
+    line("Redirect URI (register this EXACT value in Entra → Authentication → SPA):");
+    line("   "+window.location.origin+window.location.pathname);
+    line("");
+    line("Signing in with Microsoft…");
+    const acct = await signIn();
+    line("✓ Signed in: "+(acct.username||acct.name));
+    line("");
+    line("Resolving site "+GRAPH_CONFIG.siteHostname+":"+GRAPH_CONFIG.sitePath+" …");
+    const site = await graphGet("/sites/"+GRAPH_CONFIG.siteHostname+":"+GRAPH_CONFIG.sitePath);
+    line("✓ Site: "+(site.displayName||site.name));
+    line("   site id: "+site.id);
+    line("");
+    const lists = await graphGet("/sites/"+encodeURIComponent(site.id)+"/lists?$select=id,displayName&$top=200");
+    line("Lists on site: "+lists.value.length);
+    for(const key of Object.keys(GRAPH_CONFIG.lists)){
+      const name=GRAPH_CONFIG.lists[key];
+      const match=lists.value.find(l=>l.displayName===name);
+      line("");
+      if(!match){ line("✗ NOT FOUND: \""+name+"\"  (check the list name)"); continue; }
+      line("● "+name);
+      line("   list id: "+match.id);
+      const cols = await graphGet("/sites/"+encodeURIComponent(site.id)+"/lists/"+match.id+"/columns?$select=name,displayName,readOnly");
+      const editable = cols.value.filter(c=>!c.readOnly && !["ContentType","Attachments","Edit","LinkTitleNoMenu","LinkTitle","DocIcon","ItemChildCount","FolderChildCount","_ComplianceFlags","_ComplianceTag","_ComplianceTagWrittenTime","_ComplianceTagUserId","AppAuthor","AppEditor"].includes(c.name));
+      line("   columns (internal names): "+editable.map(c=>c.name).join(", "));
+      const cnt = await graphGet("/sites/"+encodeURIComponent(site.id)+"/lists/"+match.id+"/items?$select=id&$top=1");
+      line("   read ok"+(cnt.value.length?" (has items)":" (empty)"));
+    }
+    line("");
+    line("✓ DONE — copy everything above and send it to Claude to finalise read/write.");
+  }catch(e){
+    line("");
+    line("✗ ERROR: "+(e&&e.message?e.message:e));
+    line("");
+    line("Common causes: redirect URI not registered for this exact URL; admin consent not granted for Sites.ReadWrite.All; site path wrong; or running from file:// (must be the hosted https URL).");
+  }
+}
+
+/* ===================== BOOT ===================== */
+load();
+showDashboard();
+document.addEventListener("keydown",e=>{ if(e.key==="Escape")closeModal(); });
+</script>
+</body>
+</html>

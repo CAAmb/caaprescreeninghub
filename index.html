@@ -57,7 +57,8 @@
 
   /* ---- Brand logo ---- */
   .ca-mark{width:100%;height:100%;display:block}
-  .brandlogo{height:36px;width:auto;display:block;flex:0 0 auto}
+  .brandlogo{height:46px;width:auto;display:block;flex:0 0 auto}
+  .apppill{margin-left:16px;border:1.5px solid var(--peach);color:var(--peach);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;font-size:13px;padding:8px 18px;border-radius:24px;white-space:nowrap;line-height:1}
   .login-logo img{max-height:104px;width:auto;display:block;margin:0 auto 8px}
   /* ---- Login / landing ---- */
   #loginView{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
@@ -395,7 +396,7 @@
 </div>
 
 <header class="topbar">
-  <img class="brandlogo" src="CAA_Secondary_Logo_White.png" alt="Coastal Advisory Australia"
+  <img class="brandlogo" src="CAA_PrimaryLogo_White.png" alt="Coastal Advisory Australia"
        onerror="this.style.display='none';document.getElementById('brandMarkFallback').style.display='flex'">
   <div class="brandmark" id="brandMarkFallback" style="display:none">
     <svg class="ca-mark" viewBox="0 0 90 100" fill="none" stroke="currentColor" stroke-width="6.5" stroke-linecap="round" aria-hidden="true">
@@ -406,10 +407,7 @@
       <circle cx="60" cy="50" r="4.6" fill="currentColor" stroke="none"/>
     </svg>
   </div>
-  <div class="brandtext">
-    <b>Mat's Amazing Insurance Pre-Screening Hub</b>
-    <span>Coastal Advisory Australia</span>
-  </div>
+  <div class="apppill">Mat's Amazing Insurance Pre-Screening Hub</div>
   <div class="spacer"></div>
   <div class="crumb" id="crumb"></div>
   <span class="syncstat" id="syncStatus"></span>

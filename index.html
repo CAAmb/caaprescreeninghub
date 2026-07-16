@@ -477,10 +477,10 @@ const DOLLAR_OPTIONS = ["1","2","3","4","5","6","7","8","9","10"];
 const COVER_TYPES = [["Life","Life"],["TPD","TPD"],["Trauma","Trauma"],["IncomeProtection","Income Protection"]];
 const YESNO = ["Yes","No"];
 const GENDERS = ["Female","Male"];
-const ALCOHOL_BANDS = ["Never drunk","Don't typically drink","1-2 drinks","3-5 drinks","5-10 drinks","10-20 drinks","20-30 drinks","More than 30"];
-const EMPLOYMENT_STATUS = ["Permanent Employee","Casual Employee","Self-Employed","Business Owner","Contractor"];
-const WEIGHT_CHANGE = ["No","Yes - increased","Yes - decreased"];
-const BANKRUPTCY = ["No","Yes - bankrupt","Yes - debt arrangement"];
+const ALCOHOL_BANDS = ["I have never drunk alcohol","I don't typically drink alcohol","1-2 drinks","3-5 drinks","5-10 drinks","10-20 drinks","20-30 drinks","More than 30 drinks"];
+const EMPLOYMENT_STATUS = ["Permanent Employee (full or part time)","Casual Employee","Self-Employed","Business Owner","Contractor"];
+const WEIGHT_CHANGE = ["No","Yes - weight has increased","Yes - weight has decreased"];
+const BANKRUPTCY = ["No","Yes - I have been bankrupt","Yes - I have been under a formal debt repayment other than bankruptcy"];
 
 /* ===================== SEED DATA ===================== */
 function seedData(){
@@ -823,7 +823,7 @@ function renderDetail(id){
         ["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
       ])}
       ${panel("General Health screening","🩺",[
-        ["Height / weight",(c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(bmi(c)?` (BMI ${bmi(c)})`:"")],
+        ["Height / weight",hwLine(c)],
         ["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],
         ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],
         ["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
@@ -924,7 +924,7 @@ function exportPdf(caseId){
     doc.autoTable({...commonTbl, startY:y,
       head:[["Field","Detail"]],
       body:[
-        ["Height / weight",((c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(bmi(c)?` (BMI ${bmi(c)})`:""))||"—"],
+        ["Height / weight",(hwLine(c))||"—"],
         ["Weight changed (12m)",c.weightChanged12m||"—"],
         ["Weight change detail",c.weightChangeDetail||"—"],
         ["High blood pressure",c.highBloodPressure||"—"],
@@ -1074,7 +1074,7 @@ function buildReport(c){
         ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
       ])}
       ${repPanel("General Health screening",[
-        ["Height / weight",(c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(bmi(c)?` (BMI ${bmi(c)})`:"")],
+        ["Height / weight",hwLine(c)],
         ["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],
         ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
       ])}
@@ -1109,6 +1109,17 @@ function buildReport(c){
 }
 
 function bmi(c){ if(!c.heightCm||!c.weightKg)return""; const m=c.heightCm/100; return (c.weightKg/(m*m)).toFixed(1); }
+function bmiCat(b){ b=parseFloat(b); if(!b)return""; if(b<18.5)return"underweight"; if(b<25)return"healthy"; if(b<30)return"overweight"; return"obese"; }
+function bmiFlagged(b){ b=parseFloat(b); return b>=28; }
+function hwLine(c){ const b=bmi(c); return (c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(b?` (BMI ${b}${bmiFlagged(b)?" ⚠ elevated (≥28)":""})`:""); }
+function updateBmi(){
+  const el=document.getElementById("f_bmiDisplay"); if(!el)return;
+  const h=parseFloat(gv("f_heightCm")), w=parseFloat(gv("f_weightKg"));
+  if(h>0&&w>0){ const m=h/100, b=(w/(m*m)).toFixed(1), flag=bmiFlagged(b);
+    el.value=b+" — "+bmiCat(b)+(flag?"   ⚠ FLAG (≥28)":"");
+    el.style.background=flag?"#fbe9e6":"#eef3f6"; el.style.color=flag?"#b3402f":""; el.style.fontWeight=flag?"700":"";
+  } else { el.value=""; el.style.background="#eef3f6"; el.style.color=""; el.style.fontWeight=""; }
+}
 
 function panel(title,icon,rows){
   const body = rows.map(([k,val])=>`<dt>${esc(k)}</dt><dd>${(val===0||val)?esc(val):'<span class="muted">—</span>'}</dd>`).join("");
@@ -1299,8 +1310,9 @@ function openCaseModal(id){
       ${fld("Bankruptcy detail","f_bankruptcyDetail",c.bankruptcyDetail,"textarea")}
     </div></fieldset>
     <fieldset class="coverset"><legend>General Health screening</legend><div class="formgrid">
-      ${fld("Height (cm)","f_heightCm",c.heightCm,"number")}
-      ${fld("Weight (kg)","f_weightKg",c.weightKg,"number")}
+      <div class="field"><label>Height (cm)</label><input id="f_heightCm" type="number" value="${esc(c.heightCm==null?"":c.heightCm)}" oninput="updateBmi()"></div>
+      <div class="field"><label>Weight (kg)</label><input id="f_weightKg" type="number" value="${esc(c.weightKg==null?"":c.weightKg)}" oninput="updateBmi()"></div>
+      <div class="field"><label>BMI (calculated)</label><input id="f_bmiDisplay" type="text" readonly style="background:#eef3f6" value="${(()=>{const b=bmi(c);return b?b+" — "+bmiCat(b):"";})()}"></div>
       ${fld("Weight changed (12m)","f_weightChanged12m",c.weightChanged12m||"","select",["",...WEIGHT_CHANGE])}
       ${fld("High blood pressure","f_highBloodPressure",c.highBloodPressure||"","select",["",...YESNO])}
       ${fld("High cholesterol","f_highCholesterol",c.highCholesterol||"","select",["",...YESNO])}
@@ -1313,6 +1325,7 @@ function openCaseModal(id){
   openModal(isNew?"New Pre-Screening Case":"Edit Case Details", body,
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
      <button class="btn" onclick="saveCase('${id||""}')">${isNew?"Create case":"Save"}</button>`);
+  updateBmi();
 }
 async function saveCase(id){
   const fields=["complexity","status","preScreeningDate","assessmentCompletedDate",

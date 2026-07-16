@@ -85,6 +85,13 @@
   .userchip .uc-name{opacity:.9}
   .userchip .uc-out{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:4px 9px;font-size:11.5px;font-weight:600;cursor:pointer}
   .userchip .uc-out:hover{background:rgba(255,255,255,.24)}
+  .syncstat{font-size:11.5px;margin-left:12px;color:rgba(255,255,255,.85);white-space:nowrap}
+  .syncstat.ok{color:#bfe8cf}
+  .syncstat.busy{color:#fff;opacity:.9}
+  .syncstat.err{color:#ffb4a6;font-weight:700}
+  #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:11px 18px;border-radius:9px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.28);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:9999;max-width:80vw;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.err{background:#8a2f22}
 
   /* ---------- Buttons ---------- */
   .btn{
@@ -405,6 +412,7 @@
   </div>
   <div class="spacer"></div>
   <div class="crumb" id="crumb"></div>
+  <span class="syncstat" id="syncStatus"></span>
   <button class="btn ghost sm" style="margin-left:14px" onclick="runConnectionTest()">⚙ Test SharePoint</button>
   <div class="userchip" id="userChip"></div>
 </header>
@@ -651,11 +659,11 @@ function normalize(){
     if(c.assessmentCompletedDate===undefined) c.assessmentCompletedDate="";
   });
 }
-function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }
+function save(){ /* data now persists to SharePoint via Graph, not localStorage */ }
 function getCase(id){ return DB.find(c=>c.id===id); }
 function uid(p){ return p + "-" + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-3); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
-function age(dob){ if(!dob)return"";const d=new Date(dob);const t=new Date("2026-07-01");let a=t.getFullYear()-d.getFullYear();if(t<new Date(t.getFullYear(),d.getMonth(),d.getDate()))a--;return a; }
+function age(dob){ if(!dob)return"";const d=new Date(dob);const t=new Date();let a=t.getFullYear()-d.getFullYear();if(t<new Date(t.getFullYear(),d.getMonth(),d.getDate()))a--;return a; }
 function initials(c){ const p=(c.fullName||"").trim().split(/\s+/); const a=(p[0]||"?")[0]||"?"; const b=p.length>1?(p[p.length-1][0]||""):""; return (a+b).toUpperCase(); }
 function fmtDate(d){ return d?d:"—"; }
 function val(v){ return (v===0||v)?esc(v):"—"; }
@@ -757,7 +765,7 @@ function matchSearch(c){
 }
 function onSearch(v){ searchTerm=v; renderDashboard(); document.getElementById("searchInput").focus(); }
 function setTab(t){ currentTab=t; renderDashboard(); }
-function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); save(); renderDashboard(); }
+function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); renderDashboard(); persist(saveSubmissionRemote(c)); }
 
 /* ===================== DETAIL ===================== */
 function renderDetail(id){
@@ -1306,7 +1314,7 @@ function openCaseModal(id){
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
      <button class="btn" onclick="saveCase('${id||""}')">${isNew?"Create case":"Save"}</button>`);
 }
-function saveCase(id){
+async function saveCase(id){
   const fields=["complexity","status","preScreeningDate","assessmentCompletedDate",
     "fullName","dob","gender","smokerLast12m",
     "livingInAustralia","citizenOrPR","currentVisaDetail","appliedForPR","overseasLocationDetail","plansToTravel2yrs","travelPlansDetail",
@@ -1316,28 +1324,42 @@ function saveCase(id){
     "heightCm","weightKg","weightChanged12m","weightChangeDetail","highBloodPressure","bpDetail","highCholesterol","cholesterolDetail",
     "rawForm"];
   if(!gv("f_fullName")){ alert("Full name is required."); return; }
-  let c;
+  const isNew=!id; let c;
   if(id){ c=getCase(id); }
   else { c={id:uid("PS"),status:"In Progress",createdDate:todayStr(),healthIssues:[],insurerOutcomes:defaultPanel(),familyHistory:[]}; DB.unshift(c); }
   fields.forEach(f=>{ c[f]=gv("f_"+f); });
   ["annualIncome","heightCm","weightKg"].forEach(n=>{ c[n]=c[n]?Number(c[n]):""; });
   if(!c.status) c.status="In Progress";
   c.lastUpdated=todayStr();
-  save(); closeModal();
+  closeModal();
   if(id) renderDetail(id); else showDetail(c.id);
+  setSync("saving");
+  try{
+    await saveSubmissionRemote(c);
+    if(isNew){ for(const io of c.insurerOutcomes){ const fl=ioFields(io); fl.SubmissionLookupId=Number(c.spId); const it=await gCreate("insurerOutcomes",fl); io.spId=it.id; } }
+    setSync("saved");
+  }catch(e){ setSync("error", e.message); }
 }
 function toggleStatus(id){
   const c=getCase(id);
   if(c.status==="Complete"){ c.status="In Progress"; }
   else { c.status="Complete"; c.assessmentCompletedDate=c.assessmentCompletedDate||todayStr(); }
-  c.lastUpdated=todayStr(); save(); renderDetail(id);
+  c.lastUpdated=todayStr(); renderDetail(id);
+  persist(saveSubmissionRemote(c));
 }
-function deleteCase(id){
+async function deleteCase(id){
   const c=getCase(id); if(!c) return;
   if(!confirm(`Delete "${c.fullName||"this case"}" and all its health issues, insurer outcomes and family history?\n\nThis cannot be undone.`)) return;
   DB=DB.filter(x=>x.id!==id);
-  save();
   showDashboard();
+  setSync("saving");
+  try{
+    for(const h of c.healthIssues) if(h.spId) await gDelete("healthIssues",h.spId);
+    for(const io of c.insurerOutcomes) if(io.spId) await gDelete("insurerOutcomes",io.spId);
+    for(const f of c.familyHistory) if(f.spId) await gDelete("familyHistory",f.spId);
+    if(c.spId) await gDelete("submissions",c.spId);
+    setSync("saved");
+  }catch(e){ setSync("error", e.message); }
 }
 
 /* ===================== HEALTH ISSUE MODAL ===================== */
@@ -1369,20 +1391,23 @@ function saveHealth(caseId,hid){
   let h;
   if(hid){ h=c.healthIssues.find(x=>x.id===hid); } else { h={id:uid("HI")}; c.healthIssues.push(h); }
   fields.forEach(f=>{ h[f]=gv("h_"+f); });
-  c.lastUpdated="2026-07-01"; save(); closeModal(); renderDetail(caseId);
+  closeModal(); renderDetail(caseId);
+  persist(saveHealthRemote(c,h));
 }
-function delHealth(caseId,hid){ if(!confirm("Delete this health issue?"))return; const c=getCase(caseId); c.healthIssues=c.healthIssues.filter(x=>x.id!==hid); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+async function delHealth(caseId,hid){ if(!confirm("Delete this health issue?"))return; const c=getCase(caseId); const h=c.healthIssues.find(x=>x.id===hid); c.healthIssues=c.healthIssues.filter(x=>x.id!==hid); renderDetail(caseId); if(h&&h.spId) await persist(gDelete("healthIssues",h.spId)); }
 
 /* ===================== INSURER PANEL HELPERS ===================== */
 function blankCover(){ return {type:"Not assessed",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:""}; }
 function newInsurerCard(name){ return {id:uid("IO"),insurerName:name,dateSent:"",dateReceived:"",occRatingDetail:"",notes:"",covers:{Life:blankCover(),TPD:blankCover(),Trauma:blankCover(),IncomeProtection:blankCover()}}; }
 function defaultPanel(){ return INSURERS.map(newInsurerCard); }
-function addStandardPanel(caseId){
+async function addStandardPanel(caseId){
   const c=getCase(caseId); const have=new Set(c.insurerOutcomes.map(io=>io.insurerName));
   const missing=INSURERS.filter(n=>!have.has(n));
   if(!missing.length){ alert("All standard insurers are already listed."); return; }
-  missing.forEach(n=>c.insurerOutcomes.push(newInsurerCard(n)));
-  c.lastUpdated="2026-07-01"; save(); renderDetail(caseId);
+  const added=missing.map(n=>{ const io=newInsurerCard(n); c.insurerOutcomes.push(io); return io; });
+  renderDetail(caseId);
+  setSync("saving");
+  try{ for(const io of added){ await saveInsurerRemote(c,io); } setSync("saved"); }catch(e){ setSync("error", e.message); }
 }
 
 /* ===================== RAW FORM MODAL ===================== */
@@ -1394,13 +1419,13 @@ function openRawForm(caseId){
 }
 
 /* ===================== INLINE INSURER EDITING ===================== */
-function addBlankInsurer(caseId){ const c=getCase(caseId); c.insurerOutcomes.push(newInsurerCard("")); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
-function delInsurer(caseId,iid){ if(!confirm("Delete this insurer?"))return; const c=getCase(caseId); c.insurerOutcomes=c.insurerOutcomes.filter(x=>x.id!==iid); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
-// text/date/select value change — save without re-render (keeps focus)
-function setInsurerField(caseId,ioId,field,val){ const io=getCase(caseId).insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io[field]=val; getCase(caseId).lastUpdated="2026-07-01"; save(); }
-function setCoverField(caseId,ioId,key,field,val){ const io=getCase(caseId).insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key][field]=val; getCase(caseId).lastUpdated="2026-07-01"; save(); }
+function addBlankInsurer(caseId){ const c=getCase(caseId); const io=newInsurerCard(""); c.insurerOutcomes.push(io); renderDetail(caseId); persist(saveInsurerRemote(c,io)); }
+async function delInsurer(caseId,iid){ if(!confirm("Delete this insurer?"))return; const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===iid); c.insurerOutcomes=c.insurerOutcomes.filter(x=>x.id!==iid); renderDetail(caseId); if(io&&io.spId) await persist(gDelete("insurerOutcomes",io.spId)); }
+// text/date/select value change — persist without re-render (keeps focus)
+function setInsurerField(caseId,ioId,field,val){ const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io[field]=val; persist(saveInsurerRemote(c,io)); }
+function setCoverField(caseId,ioId,key,field,val){ const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key][field]=val; persist(saveInsurerRemote(c,io)); }
 // outcome type change — re-render so the right conditional inputs show
-function setCoverType(caseId,ioId,key,val){ const io=getCase(caseId).insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key].type=val; getCase(caseId).lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+function setCoverType(caseId,ioId,key,val){ const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key].type=val; renderDetail(caseId); persist(saveInsurerRemote(c,io)); }
 
 /* ===================== FAMILY HISTORY MODAL ===================== */
 function openFamilyModal(caseId,fid){
@@ -1420,9 +1445,10 @@ function saveFamily(caseId,fid){
   let f;
   if(fid){ f=c.familyHistory.find(x=>x.id===fid); } else { f={id:uid("FH")}; c.familyHistory.push(f); }
   f.condition=gv("fm_condition"); f.familyMember=gv("fm_familyMember"); f.ageAtDiagnosis=gv("fm_ageAtDiagnosis")?Number(gv("fm_ageAtDiagnosis")):"";
-  c.lastUpdated="2026-07-01"; save(); closeModal(); renderDetail(caseId);
+  closeModal(); renderDetail(caseId);
+  persist(saveFamilyRemote(c,f));
 }
-function delFamily(caseId,fid){ if(!confirm("Delete this entry?"))return; const c=getCase(caseId); c.familyHistory=c.familyHistory.filter(x=>x.id!==fid); c.lastUpdated="2026-07-01"; save(); renderDetail(caseId); }
+async function delFamily(caseId,fid){ if(!confirm("Delete this entry?"))return; const c=getCase(caseId); const f=c.familyHistory.find(x=>x.id===fid); c.familyHistory=c.familyHistory.filter(x=>x.id!==fid); renderDetail(caseId); if(f&&f.spId) await persist(gDelete("familyHistory",f.spId)); }
 
 /* ===================== MSAL AUTH + GRAPH (phase 2a: connect + verify) ===================== */
 let msalApp=null;
@@ -1502,6 +1528,162 @@ async function runConnectionTest(){
   }
 }
 
+/* ===================== GRAPH DATA LAYER (live read/write) ===================== */
+const GRAPH = { siteId:null, lists:{} };
+
+async function graphGetAll(path){
+  let url = "https://graph.microsoft.com/v1.0"+path, out=[];
+  const token = await getToken();
+  while(url){
+    const r = await fetch(url, { headers:{ Authorization:"Bearer "+token } });
+    if(!r.ok) throw new Error("Graph "+r.status+": "+(await r.text()).slice(0,300));
+    const j = await r.json(); out = out.concat(j.value||[]); url = j["@odata.nextLink"]||null;
+  }
+  return out;
+}
+async function graphSend(method, path, body){
+  const token = await getToken();
+  const r = await fetch("https://graph.microsoft.com/v1.0"+path, {
+    method, headers:{ Authorization:"Bearer "+token, "Content-Type":"application/json" },
+    body: body?JSON.stringify(body):undefined
+  });
+  if(!r.ok) throw new Error("Graph "+r.status+": "+(await r.text()).slice(0,300));
+  return r.status===204?null:r.json();
+}
+async function resolveGraph(){
+  if(GRAPH.siteId) return;
+  const site = await graphGet("/sites/"+GRAPH_CONFIG.siteHostname+":"+GRAPH_CONFIG.sitePath);
+  GRAPH.siteId = site.id;
+  const lists = await graphGet("/sites/"+encodeURIComponent(site.id)+"/lists?$select=id,displayName&$top=200");
+  for(const key of Object.keys(GRAPH_CONFIG.lists)){
+    const m = lists.value.find(l=>l.displayName===GRAPH_CONFIG.lists[key]);
+    if(!m) throw new Error("List not found: "+GRAPH_CONFIG.lists[key]);
+    GRAPH.lists[key] = m.id;
+  }
+}
+function listPath(key){ return "/sites/"+encodeURIComponent(GRAPH.siteId)+"/lists/"+GRAPH.lists[key]; }
+
+/* ---- conversions ---- */
+function inDate(v){ return v?String(v).slice(0,10):""; }
+function outDate(v){ return v?(String(v).slice(0,10)+"T00:00:00Z"):null; }
+function outNum(v){ return (v===""||v==null)?null:Number(v); }
+function outStr(v){ return (v===""||v==null)?null:String(v); }
+
+const SUB_MAP = {
+  status:"Status", complexity:"Complexity", preScreeningDate:"PreScreeningDate", assessmentCompletedDate:"AssessmentCompletedDate",
+  rawForm:"RawForm", fullName:"FullName", dob:"DOB", gender:"Gender", smokerLast12m:"SmokerLast12m",
+  livingInAustralia:"LivinginAustralia", overseasLocationDetail:"OverseasLocationDetail", citizenOrPR:"CitizenOrPR",
+  currentVisaDetail:"CurrentVisaDetail", appliedForPR:"AppliedForPR", plansToTravel2yrs:"PlansToTravelOrLive2yrs", travelPlansDetail:"TravelPlansDetail",
+  hazardousPastimes:"HazardousPastimes", hazardousActivityDetail:"HazardousActivityDetail", alcoholPerWeek:"AlcoholPerWeek",
+  alcoholReductionAdvised:"AlcoholReductionAdvised", alcoholAdviceDate:"AlcoholAdviceDate", recreationalDrugs10yrs:"RecreationalDrugs10yrs", drugDetail:"DrugDetail",
+  currentlyWorking:"CurrentlyWorking", occupation:"Occupation", employer:"Employer", annualIncome:"AnnualIncome",
+  hazardousDuties:"HazardousDuties", dutiesBreakdown:"DutiesBreakdown", hoursWeeksWorked:"HoursWeeksWorked", employmentStatus:"EmploymentStatus",
+  selfEmploymentDetail:"SelfEmploymentDetail", bonusCommissionOver20:"BonusCommissionOver20", secondJob:"SecondJob", secondJobDetail:"SecondJobDetail",
+  plansToChangeJob:"PlansToChangeJob", jobChangeDetail:"JobChangeDetail", bankruptcyStatus:"BankruptcyStatus", bankruptcyDetail:"BankruptcyDetail",
+  heightCm:"HeightCm", weightKg:"WeightKg", weightChanged12m:"WeightChanged12m", weightChangeDetail:"WeightChangeDetail",
+  highBloodPressure:"HighBloodPressure", bpDetail:"BPDetail", highCholesterol:"HighCholesterol", cholesterolDetail:"CholesterolDetail"
+};
+const SUB_DATES = ["preScreeningDate","assessmentCompletedDate","dob"];
+const SUB_NUMS  = ["annualIncome","heightCm","weightKg"];
+function subToApp(item){
+  const f=item.fields||{}, c={ id:String(item.id), spId:item.id, healthIssues:[], insurerOutcomes:[], familyHistory:[] };
+  for(const k in SUB_MAP){ const v=f[SUB_MAP[k]]; c[k]=(v==null?"":v); }
+  SUB_DATES.forEach(k=>c[k]=inDate(c[k]));
+  SUB_NUMS.forEach(k=>c[k]=(c[k]===""||c[k]==null)?"":Number(c[k]));
+  return c;
+}
+function subFields(c){
+  const out={ Title: c.fullName||"(unnamed)" };
+  for(const k in SUB_MAP){
+    let v=c[k];
+    if(SUB_DATES.includes(k)) v=outDate(v);
+    else if(SUB_NUMS.includes(k)) v=outNum(v);
+    else v=outStr(v);
+    out[SUB_MAP[k]]=v;
+  }
+  return out;
+}
+const HI_MAP = { category:"Category", diagnosis:"Diagnosis", bodyArea:"BodyArea", dateFirstSymptoms:"DateFirstSymptoms", dateLastSymptoms:"DateLastSymptoms", treatmentStatus:"TreatmentStatus", occupationRelated:"OccupationRelated", timeOffWork:"TimeOffWork", surgery:"Surgery", surgeryDate:"SurgeryDate", fullyRecovered:"FullyRecovered", severity:"Severity", assessorNotes:"AssessorNotes" };
+function hiToApp(item){ const f=item.fields||{}, h={ id:String(item.id), spId:item.id }; for(const k in HI_MAP){ const v=f[HI_MAP[k]]; h[k]=(v==null?"":v); } h.surgeryDate=inDate(h.surgeryDate); return h; }
+function hiFields(h){ const out={ Title: h.diagnosis||"Health issue" }; for(const k in HI_MAP){ out[HI_MAP[k]]= (k==="surgeryDate")?outDate(h[k]):outStr(h[k]); } return out; }
+
+const FH_MAP = { condition:"Condition", familyMember:"FamilyMember", ageAtDiagnosis:"AgeAtDiagnosis" };
+function fhToApp(item){ const f=item.fields||{}; return { id:String(item.id), spId:item.id, condition:f.Condition||"", familyMember:f.FamilyMember||"", ageAtDiagnosis:(f.AgeAtDiagnosis==null?"":Number(f.AgeAtDiagnosis)) }; }
+function fhFields(f){ return { Title:f.condition||"Family history", Condition:outStr(f.condition), FamilyMember:outStr(f.familyMember), AgeAtDiagnosis:outNum(f.ageAtDiagnosis) }; }
+
+const COVER_KEYS = ["Life","TPD","Trauma","IncomeProtection"];
+function ioToApp(item){
+  const f=item.fields||{}, io={ id:String(item.id), spId:item.id, insurerName:f.InsurerName||"", dateSent:inDate(f.DateSent), dateReceived:inDate(f.DateReceived), occRatingDetail:f.OccRatingDetail||"", notes:f.Notes||"", covers:{} };
+  COVER_KEYS.forEach(k=>{ io.covers[k]={ type:f[k+"Outcome"]||"Not assessed", loadingPct:(f[k+"LoadingPct"]==null?"":String(f[k+"LoadingPct"])), loadingDollar:(f[k+"LoadingDollar"]==null?"":String(f[k+"LoadingDollar"])), exclusion:f[k+"Exclusion"]||"", declineReason:f[k+"DeclineReason"]||"" }; });
+  return io;
+}
+function ioFields(io){
+  const out={ Title:io.insurerName||"Insurer", InsurerName:outStr(io.insurerName), DateSent:outDate(io.dateSent), DateReceived:outDate(io.dateReceived), OccRatingDetail:outStr(io.occRatingDetail), Notes:outStr(io.notes) };
+  COVER_KEYS.forEach(k=>{ const cv=io.covers[k]||{}; out[k+"Outcome"]=outStr(cv.type); out[k+"LoadingPct"]=outNum(cv.loadingPct); out[k+"LoadingDollar"]=outNum(cv.loadingDollar); out[k+"Exclusion"]=outStr(cv.exclusion); out[k+"DeclineReason"]=outStr(cv.declineReason); });
+  return out;
+}
+
+/* ---- CRUD ---- */
+async function gCreate(key, fields){ return graphSend("POST", listPath(key)+"/items", { fields }); }
+async function gPatch(key, spId, fields){ return graphSend("PATCH", listPath(key)+"/items/"+spId+"/fields", fields); }
+async function gDelete(key, spId){ return graphSend("DELETE", listPath(key)+"/items/"+spId); }
+
+/* ---- sync status + toast ---- */
+function setSync(state,msg){
+  const el=document.getElementById("syncStatus"); if(!el)return;
+  if(state==="saving"){ el.textContent=msg||"Saving…"; el.className="syncstat busy"; }
+  else if(state==="saved"){ el.textContent=msg||"All changes saved"; el.className="syncstat ok"; }
+  else if(state==="error"){ el.textContent="⚠ Not saved"; el.className="syncstat err"; toast("Couldn't save to SharePoint: "+(msg||""),"err"); }
+  else { el.textContent=""; el.className="syncstat"; }
+}
+let toastTimer=null;
+function toast(msg,type){
+  let t=document.getElementById("toast");
+  if(!t){ t=document.createElement("div"); t.id="toast"; document.body.appendChild(t); }
+  t.textContent=msg; t.className="show"+(type==="err"?" err":"");
+  if(toastTimer) clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ t.className=""; }, type==="err"?7000:2500);
+}
+// wrap a persistence promise with sync UI
+async function persist(promise){ setSync("saving"); try{ await promise; setSync("saved"); }catch(e){ setSync("error", e.message); } }
+
+/* ---- entity persistence (optimistic: UI already updated) ---- */
+async function saveSubmissionRemote(c){ if(c.spId){ await gPatch("submissions",c.spId,subFields(c)); } else { const it=await gCreate("submissions",subFields(c)); c.spId=it.id; } }
+async function saveHealthRemote(c,h){ if(h.spId){ await gPatch("healthIssues",h.spId,hiFields(h)); } else { const fl=hiFields(h); fl.SubmissionLookupId=Number(c.spId); const it=await gCreate("healthIssues",fl); h.spId=it.id; } }
+async function saveFamilyRemote(c,f){ if(f.spId){ await gPatch("familyHistory",f.spId,fhFields(f)); } else { const fl=fhFields(f); fl.SubmissionLookupId=Number(c.spId); const it=await gCreate("familyHistory",fl); f.spId=it.id; } }
+async function saveInsurerRemote(c,io){ if(io.spId){ await gPatch("insurerOutcomes",io.spId,ioFields(io)); } else { const fl=ioFields(io); fl.SubmissionLookupId=Number(c.spId); const it=await gCreate("insurerOutcomes",fl); io.spId=it.id; } }
+
+/* ---- load all data from SharePoint ---- */
+async function initData(){
+  document.getElementById("view-dashboard").classList.remove("hidden");
+  document.getElementById("view-detail").classList.add("hidden");
+  document.getElementById("view-dashboard").innerHTML='<div class="empty" style="margin-top:40px">Loading cases from SharePoint…</div>';
+  try{
+    await resolveGraph();
+    await loadFromGraph();
+    setSync("saved","Connected");
+    showDashboard();
+  }catch(e){
+    document.getElementById("view-dashboard").innerHTML='<div class="empty" style="margin-top:40px">Couldn’t load from SharePoint.<br><br><span class="muted">'+esc(e.message)+'</span><br><br><button class="btn" onclick="initData()">Retry</button></div>';
+    setSync("error", e.message);
+  }
+}
+async function loadFromGraph(){
+  const [subs,his,ios,fhs] = await Promise.all([
+    graphGetAll(listPath("submissions")+"/items?$expand=fields"),
+    graphGetAll(listPath("healthIssues")+"/items?$expand=fields"),
+    graphGetAll(listPath("insurerOutcomes")+"/items?$expand=fields"),
+    graphGetAll(listPath("familyHistory")+"/items?$expand=fields")
+  ]);
+  const cases = subs.map(subToApp);
+  const byId = {}; cases.forEach(c=>byId[String(c.spId)]=c);
+  const parentOf = it => byId[String((it.fields||{}).SubmissionLookupId)];
+  his.forEach(it=>{ const c=parentOf(it); if(c) c.healthIssues.push(hiToApp(it)); });
+  ios.forEach(it=>{ const c=parentOf(it); if(c) c.insurerOutcomes.push(ioToApp(it)); });
+  fhs.forEach(it=>{ const c=parentOf(it); if(c) c.familyHistory.push(fhToApp(it)); });
+  DB = cases;
+}
+
 /* ===================== AUTH GATE ===================== */
 async function signInGate(){
   const btn=document.getElementById("loginBtn"), err=document.getElementById("loginErr");
@@ -1530,8 +1712,7 @@ function enterApp(acct){
   const chip=document.getElementById("userChip");
   const who=acct?(acct.name||acct.username||"Signed in"):"Signed in";
   chip.innerHTML='<span class="uc-name">'+esc(who)+'</span><button class="uc-out" onclick="signOutUser()">Sign out</button>';
-  load();
-  showDashboard();
+  initData();
 }
 function signOutUser(){
   try{ const acct=msalApp.getActiveAccount(); msalApp.logoutPopup({ account:acct }).catch(()=>{}); }catch(e){}

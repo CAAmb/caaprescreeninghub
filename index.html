@@ -450,10 +450,10 @@ const GRAPH_CONFIG = {
   loginScopes: ["User.Read"],
   scopes: ["Sites.ReadWrite.All"],
   lists: {
-    submissions: "PreScreening Submissions",
-    healthIssues: "PreScreening Health Issues",
-    insurerOutcomes: "PreScreening Insurer Outcomes",
-    familyHistory: "PreScreening Family History"
+    submissions: "PreScreeningSubmissions",
+    healthIssues: "PreScreeningHealthIssues",
+    insurerOutcomes: "PreScreeningInsurerOutcomes",
+    familyHistory: "PreScreeningFamilyHistory"
   }
 };
 
@@ -786,6 +786,7 @@ function renderDetail(id){
         <button class="btn sm" onclick="toggleStatus('${c.id}')">${c.status==="Complete"?"Reopen (In Progress)":"Mark Complete"}</button>
         <button class="btn peach sm" id="exportBtn" onclick="exportPdf('${c.id}')">⬇ Export PDF</button>
         <button class="btn ghost sm" onclick="window.print()">🖨 Print</button>
+        <button class="btn danger sm" onclick="deleteCase('${c.id}')">🗑 Delete case</button>
       </div>
     </div>
 
@@ -1331,6 +1332,13 @@ function toggleStatus(id){
   else { c.status="Complete"; c.assessmentCompletedDate=c.assessmentCompletedDate||todayStr(); }
   c.lastUpdated=todayStr(); save(); renderDetail(id);
 }
+function deleteCase(id){
+  const c=getCase(id); if(!c) return;
+  if(!confirm(`Delete "${c.fullName||"this case"}" and all its health issues, insurer outcomes and family history?\n\nThis cannot be undone.`)) return;
+  DB=DB.filter(x=>x.id!==id);
+  save();
+  showDashboard();
+}
 
 /* ===================== HEALTH ISSUE MODAL ===================== */
 function openHealthModal(caseId,hid){
@@ -1468,6 +1476,9 @@ async function runConnectionTest(){
     line("");
     const lists = await graphGet("/sites/"+encodeURIComponent(site.id)+"/lists?$select=id,displayName&$top=200");
     line("Lists on site: "+lists.value.length);
+    line("── all list names on this site ──");
+    lists.value.forEach(l=>line("   • "+l.displayName));
+    line("──────────────────────────────");
     for(const key of Object.keys(GRAPH_CONFIG.lists)){
       const name=GRAPH_CONFIG.lists[key];
       const match=lists.value.find(l=>l.displayName===name);

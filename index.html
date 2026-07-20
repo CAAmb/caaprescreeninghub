@@ -175,17 +175,23 @@
   .detailhead .sub{color:var(--muted);font-size:13px;margin-top:3px}
   .detailhead .actions{display:flex;gap:8px;flex-wrap:wrap}
 
-  .panelgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
-  .panel{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .panelgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .panel{background:#fff;border-radius:10px;box-shadow:var(--shadow);overflow:hidden;align-self:start}
   .panel > h3{
-    background:var(--navy);color:#fff;font-size:13px;padding:11px 16px;
-    text-transform:uppercase;letter-spacing:.6px;font-weight:600;
-    display:flex;align-items:center;gap:8px;
+    background:var(--navy);color:#fff;font-size:11.5px;padding:8px 12px;
+    text-transform:uppercase;letter-spacing:.5px;font-weight:600;
+    display:flex;align-items:center;gap:6px;cursor:pointer;user-select:none;
   }
-  .panel .pbody{padding:14px 16px}
-  .kv{display:grid;grid-template-columns:42% 58%;gap:6px 10px;font-size:13px}
+  .panel > h3 .chev{font-size:9px;transition:transform .15s;opacity:.85}
+  .panel.collapsed > h3 .chev{transform:rotate(-90deg)}
+  .panel.collapsed .pbody{display:none}
+  .panel .pbody{padding:10px 12px}
+  .kv{display:grid;grid-template-columns:44% 56%;gap:4px 8px;font-size:12px}
   .kv dt{color:var(--muted)}
-  .kv dd{margin:0;color:var(--ink);font-weight:500}
+  .kv dd{margin:0;color:var(--ink);font-weight:500;word-break:break-word}
+  .summarybox{white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--ink);max-height:420px;overflow:auto}
+  .casenotes{width:100%;min-height:88px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;resize:vertical}
+  .casenotes:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
 
   .section{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
   .section > .shead{
@@ -356,6 +362,7 @@
   #pdfOverlay .pdfmsg{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
 
+  @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
     .panelgrid,.insurergrid,.formgrid{grid-template-columns:1fr}
@@ -640,6 +647,7 @@ let currentTab = "In Progress";
 let searchTerm = "";
 let openCaseId = null;
 let editingCover = null; // {ioId, key} — inline per-cover edit on detail screen
+const collapsedPanels = new Set(); // detail-view panels the user has collapsed (persists across re-renders)
 
 function load(){
   try{
@@ -795,6 +803,9 @@ function renderDetail(id){
         <button class="btn danger sm" onclick="deleteCase('${c.id}')">🗑 Delete case</button>
       </div>
     </div>
+
+    ${c.cleanSummary?`<div class="section"><div class="shead"><h2>AI Summary</h2><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${esc(c.cleanSummary)}</div></div></div>`:""}
+    <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
 
     <div class="panelgrid">
       ${panel("Personal","👤",[
@@ -965,6 +976,12 @@ function exportPdf(caseId){
     });
     y=doc.lastAutoTable.finalY+6;
 
+    // Assessor Notes & Recommendation
+    sectionTitle("Assessor Notes & Recommendation");
+    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...INK);
+    doc.splitTextToSize(c.assessorNotes||"—", usable-2).forEach(ln=>{ if(y>pageH-14){ doc.addPage(); y=16; } doc.text(ln, M, y); y+=4.2; });
+    y+=4;
+
     // Raw Form
     sectionTitle("Raw Form Responses");
     doc.setFont("courier","normal"); doc.setFontSize(7.5); doc.setTextColor(...INK);
@@ -1098,6 +1115,11 @@ function buildReport(c){
     </div>
 
     <div class="rep-sec">
+      <h3>Assessor Notes &amp; Recommendation</h3>
+      <div class="rep-raw" style="font-family:inherit;font-size:11px;white-space:pre-wrap">${esc(c.assessorNotes)||"—"}</div>
+    </div>
+
+    <div class="rep-sec">
       <h3>Raw Form Responses</h3>
       <div class="rep-raw">${esc(c.rawForm)||"—"}</div>
     </div>
@@ -1121,8 +1143,10 @@ function updateBmi(){
 
 function panel(title,icon,rows){
   const body = rows.map(([k,val])=>`<dt>${esc(k)}</dt><dd>${(val===0||val)?esc(val):'<span class="muted">—</span>'}</dd>`).join("");
-  return `<div class="panel"><h3>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
+  const collapsed = collapsedPanels.has(title)?" collapsed":"";
+  return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
 }
+function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
 
 /* ---- Health Issues ---- */
 function healthSection(c){
@@ -1351,10 +1375,14 @@ async function saveCase(id){
     setSync("saved");
   }catch(e){ setSync("error", e.message); }
 }
+function setCaseNotes(id,val){ const c=getCase(id); if(!c)return; c.assessorNotes=val; persist(saveSubmissionRemote(c)); }
 function toggleStatus(id){
   const c=getCase(id);
   if(c.status==="Complete"){ c.status="In Progress"; }
-  else { c.status="Complete"; c.assessmentCompletedDate=c.assessmentCompletedDate||todayStr(); }
+  else {
+    if(!(c.assessorNotes&&c.assessorNotes.trim()) && !confirm("No assessor notes / recommendation have been added.\n\nMark this case Complete anyway?")) return;
+    c.status="Complete"; c.assessmentCompletedDate=c.assessmentCompletedDate||todayStr();
+  }
   c.lastUpdated=todayStr(); renderDetail(id);
   persist(saveSubmissionRemote(c));
 }
@@ -1582,7 +1610,7 @@ function outStr(v){ return (v===""||v==null)?null:String(v); }
 
 const SUB_MAP = {
   status:"Status", complexity:"Complexity", preScreeningDate:"PreScreeningDate", assessmentCompletedDate:"AssessmentCompletedDate",
-  rawForm:"RawForm", fullName:"FullName", dob:"DOB", gender:"Gender", smokerLast12m:"SmokerLast12m",
+  rawForm:"RawForm", cleanSummary:"CleanSummary", assessorNotes:"AssessorNotes", fullName:"FullName", dob:"DOB", gender:"Gender", smokerLast12m:"SmokerLast12m",
   livingInAustralia:"LivinginAustralia", overseasLocationDetail:"OverseasLocationDetail", citizenOrPR:"CitizenOrPR",
   currentVisaDetail:"CurrentVisaDetail", appliedForPR:"AppliedForPR", plansToTravel2yrs:"PlansToTravelOrLive2yrs", travelPlansDetail:"TravelPlansDetail",
   hazardousPastimes:"HazardousPastimes", hazardousActivityDetail:"HazardousActivityDetail", alcoholPerWeek:"AlcoholPerWeek",
@@ -1606,6 +1634,7 @@ function subToApp(item){
 function subFields(c){
   const out={ Title: c.fullName||"(unnamed)" };
   for(const k in SUB_MAP){
+    if(k==="cleanSummary") continue; // AI-owned, read-only from the app
     let v=c[k];
     if(SUB_DATES.includes(k)) v=outDate(v);
     else if(SUB_NUMS.includes(k)) v=outNum(v);

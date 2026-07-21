@@ -476,7 +476,7 @@ const TREATMENT_STATUS = ["Ongoing","Resolved","Monitoring","As needed","None"];
 const OUTCOMES = ["Standard","Loaded","Exclusion","Postponed","Declined","Not assessed"];
 const LOADING_TYPES = ["None","Medical %","Medical $ per mille","Total %","Total $ per mille"];
 const INSURERS = ["Acenda","AIA","ClearView","Encompass","Futura","MetLife","NEOS","OnePath","PPS Mutual","TAL","Zurich"];
-const COVER_OUTCOMES = ["Not assessed","Standard","Loading %","Loading $","Exclusion","Loading % and Exclusion","Loading $ and Exclusion","Declined"];
+const COVER_OUTCOMES = ["Not assessed","Standard","Loading %","Loading $","Exclusion","Loading % and Exclusion","Loading $ and Exclusion","Declined","Further information"];
 const PCT_OPTIONS = ["25","50","75","100","125","150","175","200"];
 const DOLLAR_OPTIONS = ["1","2","3","4","5","6","7","8","9","10"];
 const COVER_TYPES = [["Life","Life"],["TPD","TPD"],["Trauma","Trauma"],["IncomeProtection","Income Protection"]];
@@ -1009,6 +1009,7 @@ function coverDetailText(cv){
     case "Loading % and Exclusion": return `${cv.loadingPct?cv.loadingPct+"% loading":""}${cv.exclusion?(cv.loadingPct?" · ":"")+cv.exclusion:""}`;
     case "Loading $ and Exclusion": return `${cv.loadingDollar?"$"+cv.loadingDollar+" per mille":""}${cv.exclusion?(cv.loadingDollar?" · ":"")+cv.exclusion:""}`;
     case "Declined": return cv.declineReason||"";
+    case "Further information": return cv.furtherInfo||"";
     default: return "";
   }
 }
@@ -1184,12 +1185,14 @@ function coverCell(caseId,ioId,key,cv){
   const needDollar = t==="Loading $"||t==="Loading $ and Exclusion";
   const needExcl = t==="Exclusion"||t==="Loading % and Exclusion"||t==="Loading $ and Exclusion";
   const needDecline = t==="Declined";
+  const needFurther = t==="Further information";
   const setF=(f)=>`onchange="setCoverField('${caseId}','${ioId}','${key}','${f}',this.value)"`;
   let extra="";
   if(needPct) extra+=`<select class="mini" ${setF('loadingPct')}><option value="">— loading % —</option>${PCT_OPTIONS.map(p=>`<option value="${p}" ${p===cv.loadingPct?'selected':''}>${p}%</option>`).join("")}</select>`;
   if(needDollar) extra+=`<select class="mini" ${setF('loadingDollar')}><option value="">— $ per mille —</option>${DOLLAR_OPTIONS.map(d=>`<option value="${d}" ${d===cv.loadingDollar?'selected':''}>$${d} per mille</option>`).join("")}</select>`;
   if(needExcl) extra+=`<input class="mini" type="text" value="${esc(cv.exclusion)}" placeholder="Exclusion wording…" ${setF('exclusion')}>`;
   if(needDecline) extra+=`<input class="mini" type="text" value="${esc(cv.declineReason)}" placeholder="Decline reason…" ${setF('declineReason')}>`;
+  if(needFurther) extra+=`<input class="mini" type="text" value="${esc(cv.furtherInfo||"")}" placeholder="What further info is required…" ${setF('furtherInfo')}>`;
   const tint=coverTint(t);
   return `<td class="covercell">
     <select class="celltype" style="background:${tint}" onchange="setCoverType('${caseId}','${ioId}','${key}',this.value)">
@@ -1203,6 +1206,7 @@ function coverTint(t){
   if(t==="Exclusion")return"#fdeee0";
   if(t==="Loading % and Exclusion"||t==="Loading $ and Exclusion")return"#ffe3cf";
   if(t==="Declined")return"#fbe9e6";
+  if(t==="Further information")return"#e7f0fb";
   return"#ffffff";
 }
 function insurerSection(c){
@@ -1436,7 +1440,7 @@ function saveHealth(caseId,hid){
 async function delHealth(caseId,hid){ if(!confirm("Delete this health issue?"))return; const c=getCase(caseId); const h=c.healthIssues.find(x=>x.id===hid); c.healthIssues=c.healthIssues.filter(x=>x.id!==hid); renderDetail(caseId); if(h&&h.spId) await persist(gDelete("healthIssues",h.spId)); }
 
 /* ===================== INSURER PANEL HELPERS ===================== */
-function blankCover(){ return {type:"Not assessed",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:""}; }
+function blankCover(){ return {type:"Not assessed",loadingPct:"",loadingDollar:"",exclusion:"",declineReason:"",furtherInfo:""}; }
 function newInsurerCard(name){ return {id:uid("IO"),insurerName:name,dateSent:"",dateReceived:"",occRatingDetail:"",notes:"",covers:{Life:blankCover(),TPD:blankCover(),Trauma:blankCover(),IncomeProtection:blankCover()}}; }
 function defaultPanel(){ return INSURERS.map(newInsurerCard); }
 async function addStandardPanel(caseId){
@@ -1654,12 +1658,12 @@ function fhFields(f){ return { Title:f.condition||"Family history", Condition:ou
 const COVER_KEYS = ["Life","TPD","Trauma","IncomeProtection"];
 function ioToApp(item){
   const f=item.fields||{}, io={ id:String(item.id), spId:item.id, insurerName:f.InsurerName||"", dateSent:inDate(f.DateSent), dateReceived:inDate(f.DateReceived), occRatingDetail:f.OccRatingDetail||"", notes:f.Notes||"", covers:{} };
-  COVER_KEYS.forEach(k=>{ io.covers[k]={ type:f[k+"Outcome"]||"Not assessed", loadingPct:(f[k+"LoadingPct"]==null?"":String(f[k+"LoadingPct"])), loadingDollar:(f[k+"LoadingDollar"]==null?"":String(f[k+"LoadingDollar"])), exclusion:f[k+"Exclusion"]||"", declineReason:f[k+"DeclineReason"]||"" }; });
+  COVER_KEYS.forEach(k=>{ io.covers[k]={ type:f[k+"Outcome"]||"Not assessed", loadingPct:(f[k+"LoadingPct"]==null?"":String(f[k+"LoadingPct"])), loadingDollar:(f[k+"LoadingDollar"]==null?"":String(f[k+"LoadingDollar"])), exclusion:f[k+"Exclusion"]||"", declineReason:f[k+"DeclineReason"]||"", furtherInfo:f[k+"FurtherInfo"]||"" }; });
   return io;
 }
 function ioFields(io){
   const out={ Title:io.insurerName||"Insurer", InsurerName:outStr(io.insurerName), DateSent:outDate(io.dateSent), DateReceived:outDate(io.dateReceived), OccRatingDetail:outStr(io.occRatingDetail), Notes:outStr(io.notes) };
-  COVER_KEYS.forEach(k=>{ const cv=io.covers[k]||{}; out[k+"Outcome"]=outStr(cv.type); out[k+"LoadingPct"]=outNum(cv.loadingPct); out[k+"LoadingDollar"]=outNum(cv.loadingDollar); out[k+"Exclusion"]=outStr(cv.exclusion); out[k+"DeclineReason"]=outStr(cv.declineReason); });
+  COVER_KEYS.forEach(k=>{ const cv=io.covers[k]||{}; out[k+"Outcome"]=outStr(cv.type); out[k+"LoadingPct"]=outNum(cv.loadingPct); out[k+"LoadingDollar"]=outNum(cv.loadingDollar); out[k+"Exclusion"]=outStr(cv.exclusion); out[k+"DeclineReason"]=outStr(cv.declineReason); out[k+"FurtherInfo"]=outStr(cv.furtherInfo); });
   return out;
 }
 

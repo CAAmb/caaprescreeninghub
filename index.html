@@ -195,6 +195,8 @@
   .detailhead .actions{display:flex;gap:8px;flex-wrap:wrap}
 
   .panelgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .panel-tall{grid-row:span 2}
+  .panel-tall.collapsed{grid-row:auto}
   .panel{background:#fff;border-radius:10px;box-shadow:var(--shadow);overflow:hidden;align-self:start}
   .panel > h3{
     background:var(--navy);color:#fff;font-size:11.5px;padding:8px 12px;
@@ -383,7 +385,7 @@
   #pdfOverlay .pdfmsg{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
 
-  @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} }
+  @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} .panel-tall{grid-row:auto} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
     .panelgrid,.insurergrid,.formgrid,.dashrow{grid-template-columns:1fr}
@@ -1244,7 +1246,8 @@ function updateBmi(){
 function panel(title,icon,rows){
   const body = rows.map(([k,val])=>`<dt>${esc(k)}</dt><dd>${(val===0||val)?esc(val):'<span class="muted">—</span>'}</dd>`).join("");
   const collapsed = collapsedPanels.has(title)?" collapsed":"";
-  return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
+  const tall = title==="Occupational / Financial"?" panel-tall":""; // spans 2 grid rows to fill the empty column below it
+  return `<div class="panel${collapsed}${tall}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
 }
 function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
 // Render the AI summary preserving line breaks (so it survives copy-paste into email) + bold section headings.

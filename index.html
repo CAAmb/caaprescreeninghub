@@ -119,6 +119,25 @@
   .stat:nth-child(5){border-left-color:var(--navy)}
   .stat .num{font-size:30px;font-weight:750;color:var(--navy);line-height:1}
   .stat .lbl{font-size:12.5px;color:var(--muted);margin-top:6px;text-transform:uppercase;letter-spacing:.4px}
+  .stat.clickable{cursor:pointer;transition:transform .06s,box-shadow .12s}
+  .stat.clickable:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(15,36,51,.14)}
+
+  /* dashboard */
+  .pagehead{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+  .pagehead .pagetitle{font-size:22px;font-weight:700;color:var(--navy);flex:1;margin:0}
+  .dashrow{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  .minicard{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
+  .minicard h3{font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 10px;font-weight:600}
+  .minicard .mcstat{font-size:14px;color:var(--ink);padding:4px 0;display:flex;align-items:center;gap:8px}
+  .minicard .mcstat b{color:var(--navy);font-size:16px}
+  .barrow{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center;padding:7px 0;font-size:13px;border-bottom:1px solid var(--line)}
+  .barrow:last-child{border-bottom:none}
+  .barrow .bname{font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bartrack{background:var(--concrete);border-radius:6px;height:16px;overflow:hidden}
+  .barfill{height:100%;background:var(--peach);border-radius:6px;min-width:2px}
+  .barval{color:var(--muted);white-space:nowrap;font-size:12px}
+  .barval b{color:var(--navy)}
+  .dashnav{display:flex;gap:12px;margin-top:18px;flex-wrap:wrap}
 
   .toolbar{display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
   .search{flex:1;min-width:220px;position:relative}
@@ -189,7 +208,8 @@
   .kv{display:grid;grid-template-columns:44% 56%;gap:4px 8px;font-size:12px}
   .kv dt{color:var(--muted)}
   .kv dd{margin:0;color:var(--ink);font-weight:500;word-break:break-word}
-  .summarybox{white-space:pre-wrap;font-size:13px;line-height:1.55;color:var(--ink);max-height:420px;overflow:auto}
+  .summarybox{font-size:13px;line-height:1.6;color:var(--ink);max-height:440px;overflow:auto}
+  .summarybox strong{color:var(--navy)}
   .casenotes{width:100%;min-height:88px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;resize:vertical}
   .casenotes:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
 
@@ -238,6 +258,7 @@
   .insurertbl td{border-bottom:2px solid #d7dde2;padding:10px 8px;vertical-align:top;background:#fff}
   .insurertbl tbody tr:nth-child(even) td{background:#eef3f6}
   .insurertbl tbody tr:hover td{background:var(--sky)}
+  .insurertbl tbody tr.row-complete td{background:#e7f6ee !important}
   .insurertbl tr:last-child td{border-bottom:none}
   .insurertbl td.insurercell{border-left:4px solid var(--navy)}
   .insurertbl tbody tr:nth-child(even) td.insurercell{border-left-color:var(--peach)}
@@ -365,7 +386,7 @@
   @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
-    .panelgrid,.insurergrid,.formgrid{grid-template-columns:1fr}
+    .panelgrid,.insurergrid,.formgrid,.dashrow{grid-template-columns:1fr}
   }
 </style>
 </head>
@@ -476,6 +497,21 @@ const TREATMENT_STATUS = ["Ongoing","Resolved","Monitoring","As needed","None"];
 const OUTCOMES = ["Standard","Loaded","Exclusion","Postponed","Declined","Not assessed"];
 const LOADING_TYPES = ["None","Medical %","Medical $ per mille","Total %","Total $ per mille"];
 const INSURERS = ["Acenda","AIA","ClearView","Encompass","Futura","MetLife","NEOS","OnePath","PPS Mutual","TAL","Zurich"];
+// "Send to Insurer" — per-insurer recipients + subject. "XX" in subject is replaced with the client's initials.
+const INSURER_CONTACTS = {
+  "AIA":       { to:"paul.radbourne@aia.com",              cc:"au.sapreassess@aia.com",          subject:"XX - Pre-Assessment - 2B9930526" },
+  "Acenda":    { to:"joshua.taylor@acenda.com.au",         cc:"mathew.amanovich@acenda.com.au",  subject:"XX - Pre-Assessment - SB2117918" },
+  "MetLife":   { to:"preassessments@metlife.com",          cc:"pam.hauer@metlife.com",           subject:"XX - Pre-Assessment - 4001977" },
+  "NEOS":      { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment - A1901" },
+  "Encompass": { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment - A1901" }, // covered under NEOS Group
+  "Futura":    { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment - A1901" }, // covered under NEOS Group
+  "TAL":       { to:"preassessnsw@tal.com.au",             cc:"michelle.mcinerney@tal.com.au",   subject:"XX - Pre-Assessment - 88290" },
+  "Zurich":    { to:"life.preassessments@zurich.com.au",   cc:"emma.longrigg@zurich.com.au",     subject:"XX Pre-Assessment - YD21/6CDC" },
+  "OnePath":   { to:"life.preassessments@zurich.com.au",   cc:"emma.longrigg@zurich.com.au",     subject:"XX Pre-Assessment - YD21/6CDC" }, // covered under Zurich
+  "PPS Mutual (Murray)":  { to:"adviserservices@ppsmutual.com.au", cc:"", subject:"XX - Pre-Assessment - 4556436" },
+  "PPS Mutual (Belinda)": { to:"adviserservices@ppsmutual.com.au", cc:"", subject:"XX - Pre-Assessment - 2782314" },
+  "ClearView": { portal:true } // ClearView pre-assessments are submitted via the ClearView portal, not email
+};
 const COVER_OUTCOMES = ["Not assessed","Standard","Loading %","Loading $","Exclusion","Loading % and Exclusion","Loading $ and Exclusion","Declined","Further information"];
 const PCT_OPTIONS = ["25","50","75","100","125","150","175","200"];
 const DOLLAR_OPTIONS = ["1","2","3","4","5","6","7","8","9","10"];
@@ -674,7 +710,8 @@ function initials(c){ const p=(c.fullName||"").trim().split(/\s+/); const a=(p[0
 function fmtDate(d){ return d?d:"—"; }
 function val(v){ return (v===0||v)?esc(v):"—"; }
 function todayStr(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
-function daysToComplete(c){ if(!c.preScreeningDate||!c.assessmentCompletedDate)return null; const a=new Date(c.preScreeningDate),b=new Date(c.assessmentCompletedDate); if(isNaN(a)||isNaN(b))return null; return Math.max(0,Math.round((b-a)/86400000)); }
+function daysToComplete(c){ return daysBetween(c.preScreeningDate,c.assessmentCompletedDate); }
+function daysBetween(a,b){ if(!a||!b)return null; const d1=new Date(a),d2=new Date(b); if(isNaN(d1)||isNaN(d2))return null; return Math.max(0,Math.round((d2-d1)/86400000)); }
 
 /* ===================== ROUTER ===================== */
 function showDashboard(){
@@ -684,6 +721,15 @@ function showDashboard(){
   document.getElementById("crumb").innerHTML="";
   document.body.classList.remove("viewing-case");
   renderDashboard();
+}
+function showCases(tab){
+  if(tab) currentTab=tab;
+  openCaseId=null; editingCover=null;
+  document.getElementById("view-detail").classList.add("hidden");
+  document.getElementById("view-dashboard").classList.remove("hidden");
+  document.getElementById("crumb").innerHTML="Cases";
+  document.body.classList.remove("viewing-case");
+  renderCases();
 }
 function showDetail(id){
   if(id!==openCaseId) editingCover=null;
@@ -697,17 +743,77 @@ function showDetail(id){
   window.scrollTo(0,0);
 }
 
-/* ===================== DASHBOARD ===================== */
+/* ===================== DASHBOARD (metrics) ===================== */
 function renderDashboard(){
   const total=DB.length;
   const inProg=DB.filter(c=>c.status==="In Progress").length;
   const complete=DB.filter(c=>c.status==="Complete").length;
-  const pending=DB.filter(c=>c.insurerOutcomes.some(io=>!io.dateReceived && io.dateSent)).length;
   const doneDays=DB.filter(c=>c.status==="Complete").map(daysToComplete).filter(n=>n!=null);
   const avgDays=doneDays.length?Math.round(doneDays.reduce((a,b)=>a+b,0)/doneDays.length):null;
 
-  const filtered = DB.filter(c=>c.status===currentTab).filter(c=>matchSearch(c));
+  // insurer response analytics
+  const outcomes=DB.flatMap(c=>c.insurerOutcomes||[]);
+  const respDays=outcomes.filter(io=>io.dateSent&&io.dateReceived).map(io=>daysBetween(io.dateSent,io.dateReceived)).filter(n=>n!=null);
+  const avgResp=respDays.length?Math.round(respDays.reduce((a,b)=>a+b,0)/respDays.length):null;
+  const receivedCount=respDays.length;
+  const pendingResp=outcomes.filter(io=>io.dateSent&&!io.dateReceived).length;
+  const byIns={};
+  outcomes.forEach(io=>{
+    const n=(io.insurerName||"").trim(); if(!n)return;
+    const r=(byIns[n]=byIns[n]||{sum:0,count:0,pending:0});
+    if(io.dateSent&&io.dateReceived){ const d=daysBetween(io.dateSent,io.dateReceived); if(d!=null){ r.sum+=d; r.count++; } }
+    else if(io.dateSent&&!io.dateReceived){ r.pending++; }
+  });
+  const insRows=Object.keys(byIns).map(n=>({name:n,avg:byIns[n].count?Math.round(byIns[n].sum/byIns[n].count):null,count:byIns[n].count,pending:byIns[n].pending}))
+    .filter(r=>r.count||r.pending).sort((a,b)=>(b.avg||0)-(a.avg||0));
+  const maxAvg=Math.max(1,...insRows.map(r=>r.avg||0));
 
+  const simple=DB.filter(c=>c.complexity==="Simple").length;
+  const cplx=DB.filter(c=>c.complexity==="Complex").length;
+  const unass=DB.filter(c=>!c.complexity).length;
+
+  document.getElementById("view-dashboard").innerHTML = `
+    <div class="pagehead"><h1 class="pagetitle">Dashboard</h1><button class="btn peach" onclick="openCaseModal()">+ New Case</button></div>
+    <div class="stats">
+      <div class="stat"><div class="num">${total}</div><div class="lbl">Total cases</div></div>
+      <div class="stat clickable" onclick="showCases('In Progress')"><div class="num">${inProg}</div><div class="lbl">In progress →</div></div>
+      <div class="stat clickable" onclick="showCases('Complete')"><div class="num">${complete}</div><div class="lbl">Complete →</div></div>
+      <div class="stat"><div class="num">${avgDays!=null?avgDays:"—"}</div><div class="lbl">Avg days to complete</div></div>
+      <div class="stat"><div class="num">${avgResp!=null?avgResp:"—"}</div><div class="lbl">Avg insurer response (days)</div></div>
+    </div>
+    <div class="dashrow">
+      <div class="minicard"><h3>Insurer responses</h3>
+        <div class="mcstat"><b>${receivedCount}</b> received</div>
+        <div class="mcstat"><b>${pendingResp}</b> awaiting response</div>
+        <div class="mcstat"><b>${avgResp!=null?avgResp+" day"+(avgResp!==1?"s":""):"—"}</b> average turnaround</div>
+      </div>
+      <div class="minicard"><h3>Case complexity</h3>
+        <div class="mcstat"><span class="cx cx-Simple">Simple</span> <b>${simple}</b></div>
+        <div class="mcstat"><span class="cx cx-Complex">Complex</span> <b>${cplx}</b></div>
+        <div class="mcstat"><span class="cx cx-none">Unassigned</span> <b>${unass}</b></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="shead"><h2>Average response time by insurer</h2><span class="muted" style="font-size:12px">days from sent → received</span></div>
+      <div class="sbody">
+        ${insRows.length? insRows.map(r=>`
+          <div class="barrow">
+            <div class="bname">${esc(r.name)}</div>
+            <div class="bartrack"><div class="barfill" style="width:${r.avg?Math.round((r.avg/maxAvg)*100):2}%"></div></div>
+            <div class="barval">${r.avg!=null?`<b>${r.avg} day${r.avg!==1?"s":""}</b> · ${r.count} resp`:`no responses yet`}${r.pending?` · ${r.pending} pending`:""}</div>
+          </div>`).join("") : `<div class="empty">No insurer responses recorded yet.</div>`}
+      </div>
+    </div>
+    <div class="dashnav">
+      <button class="btn" onclick="showCases('In Progress')">View In Progress (${inProg}) →</button>
+      <button class="btn ghost" onclick="showCases('Complete')">View Complete (${complete}) →</button>
+    </div>
+  `;
+}
+
+/* ===================== CASES (list) ===================== */
+function renderCases(){
+  const filtered = DB.filter(c=>c.status===currentTab).filter(c=>matchSearch(c));
   let cards = filtered.map(c=>{
     const cats=[...new Set(c.healthIssues.map(h=>h.category))];
     const tagHtml = cats.map(t=>`<span class="chip cat">${esc(t)}</span>`).join("")
@@ -735,17 +841,10 @@ function renderDashboard(){
       </div>
     </div>`;
   }).join("");
-
   if(!filtered.length) cards = `<div class="empty">No ${currentTab.toLowerCase()} cases${searchTerm?` matching “${esc(searchTerm)}”`:""}.</div>`;
 
   document.getElementById("view-dashboard").innerHTML = `
-    <div class="stats">
-      <div class="stat"><div class="num">${total}</div><div class="lbl">Total cases</div></div>
-      <div class="stat"><div class="num">${inProg}</div><div class="lbl">In progress</div></div>
-      <div class="stat"><div class="num">${complete}</div><div class="lbl">Complete</div></div>
-      <div class="stat"><div class="num">${pending}</div><div class="lbl">Pending insurer response</div></div>
-      <div class="stat"><div class="num">${avgDays!=null?avgDays:"—"}</div><div class="lbl">Avg days to complete</div></div>
-    </div>
+    <div class="pagehead"><button class="btn ghost sm" onclick="showDashboard()">← Dashboard</button><h1 class="pagetitle">Cases</h1></div>
     <div class="toolbar">
       <div class="search">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -759,7 +858,6 @@ function renderDashboard(){
     </div>
     <div class="caselist">${cards}</div>
   `;
-  const si=document.getElementById("searchInput"); if(si && document.activeElement!==si){}
 }
 function matchSearch(c){
   if(!searchTerm)return true;
@@ -769,9 +867,9 @@ function matchSearch(c){
     ...c.insurerOutcomes.map(io=>io.insurerName)].join(" ").toLowerCase();
   return hay.includes(t);
 }
-function onSearch(v){ searchTerm=v; renderDashboard(); document.getElementById("searchInput").focus(); }
-function setTab(t){ currentTab=t; renderDashboard(); }
-function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); renderDashboard(); persist(saveSubmissionRemote(c)); }
+function onSearch(v){ searchTerm=v; renderCases(); document.getElementById("searchInput").focus(); }
+function setTab(t){ currentTab=t; renderCases(); }
+function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); renderCases(); persist(saveSubmissionRemote(c)); }
 
 /* ===================== DETAIL ===================== */
 function renderDetail(id){
@@ -794,7 +892,8 @@ function renderDetail(id){
         <div class="sub" style="margin-top:4px">Pre-screening completed: <b>${c.preScreeningDate||"—"}</b>${(()=>{const d=daysToComplete(c);return c.status==="Complete"&&d!=null?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b> · <b class="daysbadge">${d} day${d!==1?"s":""} to complete</b>`:(c.assessmentCompletedDate?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b>`:"");})()}</div>
       </div>
       <div class="actions">
-        <button class="btn ghost sm" onclick="showDashboard()">← Back</button>
+        <button class="btn ghost sm" onclick="showCases()">← Cases</button>
+        <button class="btn ghost sm" onclick="showDashboard()">📊 Dashboard</button>
         <button class="btn ghost sm" onclick="openRawForm('${c.id}')">📄 Raw form</button>
         <button class="btn ghost sm" onclick="openCaseModal('${c.id}')">Edit details</button>
         <button class="btn sm" onclick="toggleStatus('${c.id}')">${c.status==="Complete"?"Reopen (In Progress)":"Mark Complete"}</button>
@@ -804,7 +903,7 @@ function renderDetail(id){
       </div>
     </div>
 
-    ${c.cleanSummary?`<div class="section"><div class="shead"><h2>AI Summary</h2><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${esc(c.cleanSummary)}</div></div></div>`:""}
+    ${c.cleanSummary?`<div class="section"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
     <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
 
     <div class="panelgrid">
@@ -817,11 +916,6 @@ function renderDetail(id){
         ["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],
         ["Travel/live abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
       ])}
-      ${panel("Lifestyle","🏄",[
-        ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],
-        ["Alcohol / week",c.alcoholPerWeek],["Advised to reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],
-        ["Recreational drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]
-      ])}
       ${panel("Occupational / Financial","💼",[
         ["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],
         ["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],["Employment status",c.employmentStatus],
@@ -830,6 +924,11 @@ function renderDetail(id){
         ["Second job",c.secondJob],["Second job detail",c.secondJobDetail],
         ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],
         ["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
+      ])}
+      ${panel("Lifestyle","🏄",[
+        ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],
+        ["Alcohol / week",c.alcoholPerWeek],["Advised to reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],
+        ["Recreational drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]
       ])}
       ${panel("General Health screening","🩺",[
         ["Height / weight",hwLine(c)],
@@ -1148,6 +1247,47 @@ function panel(title,icon,rows){
   return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
 }
 function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
+// Render the AI summary preserving line breaks (so it survives copy-paste into email) + bold section headings.
+function summaryHtml(text){
+  return (text||"").split("\n").map(line=>{
+    const t=line.trim();
+    const isHeading = t.length>0 && t.length<=42 && t===t.toUpperCase() && /[A-Z]/.test(t);
+    return isHeading?`<strong>${esc(line)}</strong>`:esc(line);
+  }).join("<br>");
+}
+function copySummary(id){
+  const c=getCase(id); const txt=(c&&c.cleanSummary)||"";
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(()=>toast("AI summary copied to clipboard"),()=>toast("Copy failed","err")); }
+  else { toast("Clipboard not available in this browser","err"); }
+}
+/* ---- Send to Insurer (copy summary + open pre-addressed Outlook draft) ---- */
+function openSendToInsurer(id){
+  const c=getCase(id); if(!c)return;
+  const opts=Object.keys(INSURER_CONTACTS).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  const body=`<div class="field"><label>Insurer</label><select id="sendInsurer">${opts}</select></div>
+    <p class="muted" style="font-size:12.5px;line-height:1.5">The AI summary is copied to your clipboard and a pre-addressed Outlook email opens (To, Cc & subject filled) — just paste it into the body (Ctrl+V / Cmd+V) and send.</p>`;
+  openModal("Send to Insurer — "+esc(c.fullName||""), body,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn peach" onclick="sendToInsurer('${id}')">Copy summary &amp; open email</button>`);
+}
+function sendToInsurer(id){
+  const c=getCase(id); if(!c)return;
+  const insurer=gv("sendInsurer");
+  const ct=INSURER_CONTACTS[insurer]||{};
+  if(ct.portal){ closeModal(); alert(insurer+" pre-assessments are submitted via the "+insurer+" portal, not by email."); return; }
+  const subject=(ct.subject||"XX - Pre-Assessment").replace("XX", initials(c));
+  const preamble="Hi,\n\nPlease find our pre-screening summary below for consideration.\n\n";
+  const params=[];
+  if(ct.cc) params.push("cc="+encodeURIComponent(ct.cc));
+  params.push("subject="+encodeURIComponent(subject));
+  params.push("body="+encodeURIComponent(preamble));
+  const url="mailto:"+encodeURIComponent(ct.to||"")+"?"+params.join("&");
+  const openMail=()=>{ closeModal(); if(!ct.to) toast("No recipient set for "+insurer+" — add it in Outlook","err"); window.location.href=url; };
+  const summary=c.cleanSummary||"";
+  if(summary && navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(summary).then(()=>{ toast("Summary copied — paste into the email (Ctrl+V)"); openMail(); }, ()=>{ toast("Couldn't copy summary; opening email anyway","err"); openMail(); });
+  } else { openMail(); }
+}
 
 /* ---- Health Issues ---- */
 function healthSection(c){
@@ -1211,7 +1351,8 @@ function coverTint(t){
 }
 function insurerSection(c){
   const rows = c.insurerOutcomes.map(io=>{
-    return `<tr>
+    const complete = COVER_KEYS.every(k=>io.covers[k] && io.covers[k].type && io.covers[k].type!=="Not assessed");
+    return `<tr class="${complete?"row-complete":""}">
       <td class="insurercell">
         <input class="nm" list="insurerList" value="${esc(io.insurerName)}" placeholder="Insurer…" autocomplete="off"
           onchange="setInsurerField('${c.id}','${io.id}','insurerName',this.value)">
@@ -1394,7 +1535,7 @@ async function deleteCase(id){
   const c=getCase(id); if(!c) return;
   if(!confirm(`Delete "${c.fullName||"this case"}" and all its health issues, insurer outcomes and family history?\n\nThis cannot be undone.`)) return;
   DB=DB.filter(x=>x.id!==id);
-  showDashboard();
+  showCases();
   setSync("saving");
   try{
     for(const h of c.healthIssues) if(h.spId) await gDelete("healthIssues",h.spId);

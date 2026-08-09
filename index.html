@@ -272,11 +272,11 @@
   .insurertbl .dates{display:flex;gap:6px;margin-top:6px}
   .insurertbl .dates label{font-size:9px;color:var(--muted);flex:1}
   .insurertbl .dates input{padding:3px 4px;font-size:10.5px}
-  .insurertbl textarea.notes{min-height:52px;resize:vertical}
+  .insurertbl textarea.notes{min-height:44px;resize:vertical;overflow:hidden}
+  .insurertbl .occinput{margin-top:6px;padding:3px 6px;font-size:10.5px}
   .insurertbl td.covercell{min-width:150px}
-  .insurertbl td.insurercell{min-width:160px}
-  .insurertbl td.occ{min-width:130px}
-  .insurertbl td.notes{min-width:150px}
+  .insurertbl td.insurercell{min-width:180px}
+  .insurertbl td.notes{min-width:260px}
 
   .rawbox{
     background:#fbfcfd;border:1px solid var(--line);border-radius:8px;padding:14px 16px;
@@ -945,6 +945,7 @@ function renderDetail(id){
     ${insurerSection(c)}
   `;
   document.getElementById("printReport").innerHTML = buildReport(c);
+  autoGrowAll();
 }
 
 /* ===================== PRINT REPORT (landscape) ===================== */
@@ -961,10 +962,11 @@ function pdfCoverFill(type){
     case "Exclusion": return [253,238,224];
     case "Loading % and Exclusion": case "Loading $ and Exclusion": return [255,227,207];
     case "Declined": return [251,233,230];
+    case "Further information": return [231,240,251];
     default: return [255,255,255];
   }
 }
-// Native vector PDF (jsPDF + AutoTable) — precise layout, selectable text, no canvas.
+// Native vector PDF (jsPDF + AutoTable) — portrait A4, branded report.
 function exportPdf(caseId){
   const c=getCase(caseId);
   const filename=reportFilename(c)+".pdf";
@@ -975,127 +977,217 @@ function exportPdf(caseId){
   if(btn){ btn.disabled=true; btn.textContent="Generating…"; }
   try{
     const { jsPDF }=window.jspdf;
-    const doc=new jsPDF({orientation:"landscape",unit:"mm",format:"a4"});
-    const NAVY=[15,36,51], SKY=[222,245,255], INK=[28,43,54], MUTED=[94,107,117], LINE=[215,221,226], ALT=[242,245,247];
+    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const NAVY=[15,36,51], SKY=[222,245,255], PEACH=[235,163,128], INK=[28,43,54], MUTED=[110,122,132], LINE=[214,221,226], ALT=[247,249,250];
     const pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight();
-    const M=10, usable=pageW-2*M;
+    const M=14, usable=pageW-2*M;
     const name=(c.fullName||"").trim()||"—";
-
-    // Header band
-    doc.setFillColor(...NAVY); doc.rect(0,0,pageW,20,"F");
-    doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(13);
-    doc.text("Coastal Advisory Australia", M, 9);
-    doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
-    doc.text("Insurance Pre-Screening Report", M, 15);
-    doc.setFont("helvetica","bold"); doc.setFontSize(13);
-    doc.text(name, pageW-M, 9, {align:"right"});
-    doc.setFont("helvetica","normal"); doc.setFontSize(8);
-    doc.text(`${c.id} · ${age(c.dob)} yrs · ${c.gender||""} · ${c.complexity||"Unassigned"} · ${c.status} · Generated ${todayStr()}`, pageW-M, 15, {align:"right"});
-
-    // Management strip
-    let y=24;
-    doc.setFillColor(...SKY); doc.roundedRect(M,y,usable,8,1.5,1.5,"F");
-    doc.setTextColor(...INK); doc.setFont("helvetica","normal"); doc.setFontSize(8);
     const days=daysToComplete(c);
-    const mgmt=[`Complexity:  ${c.complexity||"Unassigned"}`,`Pre-screening completed:  ${c.preScreeningDate||"—"}`,`Assessment completed:  ${c.assessmentCompletedDate||"—"}`,`Days to complete:  ${days!=null?days+" day"+(days!==1?"s":""):"—"}`];
-    const colStep=usable/4;
-    mgmt.forEach((txt,i)=>doc.text(txt, M+4+i*colStep, y+5.2));
-    y+=13;
+    const BAND=30;
 
-    // Client detail panels (4 columns)
-    const gap=4, colW=(usable-3*gap)/4;
-    const panels=[
-      ["Personal",[["Full name",name],["Date of birth",c.dob?`${c.dob} (${age(c.dob)})`:""],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m]]],
-      ["Residency / Travel",[["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],["Travel/live abroad 2yrs",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]]],
-      ["Lifestyle",[["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],["Alcohol / week",c.alcoholPerWeek],["Advised reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],["Rec. drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]]],
-      ["Occupational / Financial",[["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],["Employment status",c.employmentStatus],["Hazardous duties",c.hazardousDuties],["Duties breakdown",c.dutiesBreakdown],["Hours / weeks",c.hoursWeeksWorked],["Self-employment",c.selfEmploymentDetail],["Bonus/comm >20%",c.bonusCommissionOver20],["Second job",c.secondJob],["Second job detail",c.secondJobDetail],["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]]]
-    ];
-    let panelBottom=y;
-    panels.forEach((p,i)=>{
-      const left=M+i*(colW+gap);
-      doc.autoTable({
-        startY:y, margin:{left:left, right:pageW-left-colW}, tableWidth:colW,
-        head:[[{content:p[0],colSpan:2}]],
-        body:p[1].map(([k,v])=>[k,(v===0||v)?String(v):"—"]),
-        theme:"grid",
-        styles:{fontSize:6.3,cellPadding:1,overflow:"linebreak",lineColor:LINE,lineWidth:0.1,textColor:INK,valign:"top"},
-        headStyles:{fillColor:SKY,textColor:NAVY,fontSize:6.8,fontStyle:"bold",halign:"left"},
-        columnStyles:{0:{cellWidth:colW*0.42,textColor:MUTED},1:{cellWidth:colW*0.58,fontStyle:"bold"}}
+    /* ---------- page furniture ---------- */
+    const logoEl=document.querySelector(".brandlogo");
+    const hasLogo = logoEl && logoEl.naturalWidth>0;
+    function drawBand(){
+      doc.setFillColor(...NAVY); doc.rect(0,0,pageW,BAND,"F");
+      doc.setFillColor(...PEACH); doc.rect(0,BAND-1.2,pageW,1.2,"F");
+      if(hasLogo){
+        const h=11, w=h*(logoEl.naturalWidth/logoEl.naturalHeight);
+        try{ doc.addImage(logoEl,"PNG",M,(BAND-1.2-h)/2,w,h); }catch(e){ bandText(); }
+      } else bandText();
+      doc.setTextColor(255); doc.setFont("helvetica","normal"); doc.setFontSize(9);
+      doc.text("Insurance Pre-Screening Report", pageW-M, 13, {align:"right"});
+      doc.setFontSize(7.5); doc.setTextColor(200,215,225);
+      doc.text("Confidential", pageW-M, 18.5, {align:"right"});
+    }
+    function bandText(){
+      doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(12);
+      doc.text("Coastal Advisory Australia", M, 13);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(200,215,225);
+      doc.text("Plan everything. Regret nothing.", M, 18.5);
+    }
+    drawBand();
+
+    /* ---------- title block ---------- */
+    let y=BAND+11;
+    doc.setTextColor(...NAVY); doc.setFont("helvetica","bold"); doc.setFontSize(19);
+    doc.text(name, M, y);
+    // status + complexity pills
+    let px=M;
+    y+=6;
+    const pill=(txt,fill,txtCol)=>{
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.5);
+      const w=doc.getTextWidth(txt)+7;
+      doc.setFillColor(...fill); doc.roundedRect(px,y-3.6,w,5.6,2.8,2.8,"F");
+      doc.setTextColor(...txtCol); doc.text(txt,px+3.5,y);
+      px+=w+4;
+    };
+    pill(c.status||"In Progress", c.status==="Complete"?[230,246,238]:[255,244,231], c.status==="Complete"?[31,138,91]:[196,127,42]);
+    pill(c.complexity||"Unassigned", c.complexity==="Complex"?[253,238,224]:(c.complexity==="Simple"?SKY:[235,238,240]), c.complexity?NAVY:MUTED);
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
+    doc.text(`Ref ${c.id}  ·  ${age(c.dob)} yrs  ·  ${c.gender||"—"}  ·  ${c.occupation||"—"}`, px+2, y);
+    y+=8;
+
+    // meta strip
+    doc.setFillColor(...SKY); doc.roundedRect(M,y,usable,9,2,2,"F");
+    doc.setFontSize(7.8); doc.setTextColor(...INK);
+    const meta=[["Pre-screening", c.preScreeningDate||"—"],["Assessment completed", c.assessmentCompletedDate||"—"],["Days to complete", days!=null?(days+" day"+(days!==1?"s":"")):"—"],["Generated", todayStr()]];
+    const step=usable/4;
+    meta.forEach((m,i)=>{
+      const x=M+4+i*step;
+      doc.setFont("helvetica","normal"); doc.setTextColor(...MUTED); doc.text(m[0], x, y+3.6);
+      doc.setFont("helvetica","bold"); doc.setTextColor(...NAVY); doc.text(String(m[1]), x, y+7.2);
+    });
+    y+=15;
+
+    /* ---------- helpers ---------- */
+    const need=(mm)=>{ if(y+mm>pageH-16){ doc.addPage(); y=BAND-10; } };
+    const sectionTitle=(t)=>{
+      need(16);
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...NAVY);
+      doc.text(t,M,y);
+      y+=2; doc.setDrawColor(...PEACH); doc.setLineWidth(0.8); doc.line(M,y,M+22,y);
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.3); doc.line(M+22,y,pageW-M,y);
+      y+=4.5;
+    };
+    const tbl={theme:"grid",
+      styles:{fontSize:7.6,cellPadding:2,overflow:"linebreak",lineColor:LINE,lineWidth:0.15,textColor:INK,valign:"top"},
+      headStyles:{fillColor:NAVY,textColor:255,fontSize:7,fontStyle:"bold",cellPadding:2.2},
+      alternateRowStyles:{fillColor:ALT},
+      margin:{left:M,right:M,top:BAND-10,bottom:16}};
+    // paired key/value table (2 pairs per line) — compact but readable
+    function kvTable(rows){
+      const pairs=[];
+      for(let i=0;i<rows.length;i+=2){
+        const a=rows[i], b=rows[i+1];
+        pairs.push([a[0], (a[1]===0||a[1])?String(a[1]):"—", b?b[0]:"", b?((b[1]===0||b[1])?String(b[1]):"—"):""]);
+      }
+      doc.autoTable({...tbl, startY:y, body:pairs,
+        styles:{...tbl.styles,fontSize:7.4,cellPadding:1.8},
+        columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:53,fontStyle:"bold"},2:{cellWidth:38,textColor:MUTED},3:{cellWidth:53,fontStyle:"bold"}}});
+      y=doc.lastAutoTable.finalY+7;
+    }
+
+    /* ---------- AI summary ---------- */
+    if(c.cleanSummary && c.cleanSummary.trim()){
+      sectionTitle("Summary");
+      doc.setFontSize(8.6);
+      c.cleanSummary.split("\n").forEach(raw=>{
+        const line=raw.replace(/\s+$/,"");
+        const t=line.trim();
+        if(!t){ y+=2.6; return; }
+        const isHeading = t.length<=42 && t===t.toUpperCase() && /[A-Z]/.test(t);
+        doc.setFont("helvetica", isHeading?"bold":"normal");
+        doc.setTextColor(...(isHeading?NAVY:INK));
+        if(isHeading) y+=1.5;
+        doc.splitTextToSize(line, usable).forEach(seg=>{ need(6); doc.text(seg, M, y); y+=4.1; });
+        if(isHeading) y+=0.8;
       });
-      panelBottom=Math.max(panelBottom, doc.lastAutoTable.finalY);
+      y+=5;
+    }
+
+    /* ---------- assessor notes ---------- */
+    sectionTitle("Assessor Notes & Recommendation");
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.6); doc.setTextColor(...INK);
+    (c.assessorNotes && c.assessorNotes.trim() ? c.assessorNotes : "—").split("\n").forEach(raw=>{
+      if(!raw.trim()){ y+=2.6; return; }
+      doc.splitTextToSize(raw, usable).forEach(seg=>{ need(6); doc.text(seg, M, y); y+=4.1; });
     });
-    y=panelBottom+6;
+    y+=7;
 
-    const sectionTitle=(t)=>{ if(y>pageH-24){ doc.addPage(); y=16; } doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(...NAVY); doc.text(t,M,y); y+=1.5; doc.setDrawColor(...SKY); doc.setLineWidth(0.7); doc.line(M,y,pageW-M,y); y+=2.5; };
-    const commonTbl={theme:"grid",styles:{fontSize:6.6,cellPadding:1.4,overflow:"linebreak",lineColor:LINE,lineWidth:0.1,textColor:INK,valign:"top"},headStyles:{fillColor:NAVY,textColor:255,fontSize:6.2,fontStyle:"bold"},alternateRowStyles:{fillColor:ALT},margin:{left:M,right:M,top:16,bottom:14}};
+    /* ---------- client details ---------- */
+    sectionTitle("Client Details");
+    kvTable([["Full name",name],["Date of birth",c.dob?`${c.dob} (${age(c.dob)})`:""],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m],
+      ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Applied for PR",c.appliedForPR],["Current visa",c.currentVisaDetail],
+      ["Overseas location",c.overseasLocationDetail],["Travel abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail],["",""]]);
 
-    // General Health screening
-    sectionTitle("General Health screening");
-    doc.autoTable({...commonTbl, startY:y,
-      head:[["Field","Detail"]],
-      body:[
-        ["Height / weight",(hwLine(c))||"—"],
-        ["Weight changed (12m)",c.weightChanged12m||"—"],
-        ["Weight change detail",c.weightChangeDetail||"—"],
-        ["High blood pressure",c.highBloodPressure||"—"],
-        ["BP detail",c.bpDetail||"—"],
-        ["High cholesterol",c.highCholesterol||"—"],
-        ["Cholesterol detail",c.cholesterolDetail||"—"]
-      ],
-      columnStyles:{0:{cellWidth:60,fontStyle:"bold",textColor:MUTED},1:{cellWidth:usable-60}}
-    });
-    y=doc.lastAutoTable.finalY+6;
+    sectionTitle("Occupational & Financial");
+    kvTable([["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],
+      ["Employment status",c.employmentStatus],["Hours / weeks",c.hoursWeeksWorked],["Duties breakdown",c.dutiesBreakdown],["Hazardous duties",c.hazardousDuties],
+      ["Self-employment",c.selfEmploymentDetail],["Bonus/comm >20%",c.bonusCommissionOver20],["Second job",c.secondJob],["Second job detail",c.secondJobDetail],
+      ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]]);
 
-    // Health Issues
+    sectionTitle("Lifestyle & General Health");
+    kvTable([["Height / weight",hwLine(c)],["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],["High blood pressure",c.highBloodPressure],
+      ["BP detail",c.bpDetail],["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail],["Alcohol / week",c.alcoholPerWeek],
+      ["Advised reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],["Rec. drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail],
+      ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail]]);
+
+    /* ---------- health issues ---------- */
     sectionTitle(`Health Issues (${c.healthIssues.length})`);
-    doc.autoTable({...commonTbl, startY:y,
-      head:[["Category","Diagnosis / area","Symptom dates","Treatment","Occ. rel.","Time off","Surgery","Recovered","Severity / staging","Assessor notes"]],
-      body: c.healthIssues.length? c.healthIssues.map(h=>[h.category,(h.diagnosis||"")+(h.bodyArea?`\n${h.bodyArea}`:""),`${h.dateFirstSymptoms||"—"} → ${h.dateLastSymptoms||"—"}`,h.treatmentStatus||"—",h.occupationRelated||"—",h.timeOffWork||"—",h.surgery==="Yes"?("Yes"+(h.surgeryDate?` (${h.surgeryDate})`:"")):"No",h.fullyRecovered||"—",h.severity||"—",h.assessorNotes||"—"]) : [[{content:"No health issues recorded.",colSpan:10,styles:{textColor:MUTED,fontStyle:"italic"}}]],
-      columnStyles:{0:{cellWidth:22},1:{cellWidth:43},2:{cellWidth:24},3:{cellWidth:20},4:{cellWidth:15},5:{cellWidth:18},6:{cellWidth:20},7:{cellWidth:22},8:{cellWidth:38},9:{cellWidth:55}}
-    });
-    y=doc.lastAutoTable.finalY+6;
+    {
+      const body=[], meta=[];
+      c.healthIssues.forEach(h=>{
+        body.push([h.category||"—",(h.diagnosis||"—")+(h.bodyArea?`\n${h.bodyArea}`:""),`${h.dateFirstSymptoms||"—"} → ${h.dateLastSymptoms||"—"}`,h.treatmentStatus||"—",h.surgery==="Yes"?("Yes"+(h.surgeryDate?`\n${h.surgeryDate}`:"")):"No",h.fullyRecovered||"—"]);
+        meta.push("main");
+        const extras=[];
+        if(h.severity) extras.push("Severity: "+h.severity);
+        if(h.occupationRelated) extras.push("Occupation related: "+h.occupationRelated);
+        if(h.timeOffWork) extras.push("Time off work: "+h.timeOffWork);
+        if(h.assessorNotes) extras.push("Notes: "+h.assessorNotes);
+        if(extras.length){ body.push([{content:extras.join("   ·   "),colSpan:6}]); meta.push("sub"); }
+      });
+      doc.autoTable({...tbl, startY:y,
+        head:[["Category","Diagnosis / area","Symptom dates","Treatment","Surgery","Recovered"]],
+        body: body.length?body:[[{content:"No health issues recorded.",colSpan:6,styles:{textColor:MUTED,fontStyle:"italic"}}]],
+        columnStyles:{0:{cellWidth:26,fontStyle:"bold"},1:{cellWidth:44},2:{cellWidth:30},3:{cellWidth:24},4:{cellWidth:26},5:{cellWidth:32}},
+        didParseCell:(d)=>{ if(d.section==="body"&&meta[d.row.index]==="sub"){ d.cell.styles.fontSize=6.9; d.cell.styles.textColor=MUTED; d.cell.styles.fillColor=[252,253,253]; } }
+      });
+      y=doc.lastAutoTable.finalY+7;
+    }
 
-    // Family History
+    /* ---------- family history ---------- */
     sectionTitle(`Family History (${c.familyHistory.length})`);
-    doc.autoTable({...commonTbl, startY:y,
+    doc.autoTable({...tbl, startY:y,
       head:[["Condition","Family member","Age at diagnosis"]],
       body: c.familyHistory.length? c.familyHistory.map(f=>[f.condition||"—",f.familyMember||"—",(f.ageAtDiagnosis===0||f.ageAtDiagnosis)?String(f.ageAtDiagnosis):"—"]) : [[{content:"No family history recorded.",colSpan:3,styles:{textColor:MUTED,fontStyle:"italic"}}]],
-      columnStyles:{0:{cellWidth:120},1:{cellWidth:100}}
-    });
-    y=doc.lastAutoTable.finalY+6;
+      columnStyles:{0:{cellWidth:92,fontStyle:"bold"},1:{cellWidth:58},2:{cellWidth:32}}});
+    y=doc.lastAutoTable.finalY+7;
 
-    // Insurer Outcomes
+    /* ---------- insurer outcomes ---------- */
     sectionTitle(`Insurer Outcomes (${c.insurerOutcomes.length})`);
-    const coverKeys=["Life","TPD","Trauma","IncomeProtection"];
-    const ins=c.insurerOutcomes;
-    const cellText=(cv)=>{ const t=(cv&&cv.type)||"Not assessed"; const d=coverDetailText(cv); return t+(d?`\n${d}`:""); };
-    doc.autoTable({...commonTbl, startY:y,
-      head:[["Insurer","Life","TPD","Trauma","Income Protection","Occupation Rating","Notes"]],
-      body: ins.length? ins.map(o=>[(o.insurerName||"—")+`\nSent ${o.dateSent||"—"} · Rec'd ${o.dateReceived||"pending"}`,cellText(o.covers.Life),cellText(o.covers.TPD),cellText(o.covers.Trauma),cellText(o.covers.IncomeProtection),o.occRatingDetail||"—",o.notes||"—"]) : [[{content:"No insurers listed.",colSpan:7,styles:{textColor:MUTED,fontStyle:"italic"}}]],
-      columnStyles:{0:{cellWidth:34,fontStyle:"bold"},1:{cellWidth:40},2:{cellWidth:40},3:{cellWidth:45},4:{cellWidth:45},5:{cellWidth:33},6:{cellWidth:40}},
-      didParseCell:(data)=>{ if(data.section==="body" && data.column.index>=1 && data.column.index<=4 && ins.length){ const o=ins[data.row.index]; if(o){ data.cell.styles.fillColor=pdfCoverFill(o.covers[coverKeys[data.column.index-1]]&&o.covers[coverKeys[data.column.index-1]].type); } } }
-    });
-    y=doc.lastAutoTable.finalY+6;
+    {
+      const ck=["Life","TPD","Trauma","IncomeProtection"];
+      const cellText=(cv)=>{ const t=(cv&&cv.type)||"Not assessed"; const d=coverDetailText(cv); return t+(d?`\n${d}`:""); };
+      const body=[], meta=[];
+      c.insurerOutcomes.forEach(o=>{
+        body.push([(o.insurerName||"—")+`\nSent ${o.dateSent||"—"}\nRec'd ${o.dateReceived||"pending"}`,cellText(o.covers.Life),cellText(o.covers.TPD),cellText(o.covers.Trauma),cellText(o.covers.IncomeProtection)]);
+        meta.push({kind:"main",o});
+        const extras=[];
+        if(o.occRatingDetail) extras.push("Occupation rating: "+o.occRatingDetail);
+        if(o.notes) extras.push("Notes: "+o.notes);
+        if(extras.length){ body.push([{content:extras.join("   ·   "),colSpan:5}]); meta.push({kind:"sub"}); }
+      });
+      doc.autoTable({...tbl, startY:y,
+        styles:{...tbl.styles,fontSize:7},
+        head:[["Insurer","Life","TPD","Trauma","Income Protection"]],
+        body: body.length?body:[[{content:"No insurers listed.",colSpan:5,styles:{textColor:MUTED,fontStyle:"italic"}}]],
+        columnStyles:{0:{cellWidth:34,fontStyle:"bold"},1:{cellWidth:37},2:{cellWidth:37},3:{cellWidth:37},4:{cellWidth:37}},
+        didParseCell:(d)=>{
+          if(d.section!=="body")return;
+          const m=meta[d.row.index]; if(!m)return;
+          if(m.kind==="sub"){ d.cell.styles.fontSize=6.9; d.cell.styles.textColor=MUTED; d.cell.styles.fillColor=[252,253,253]; return; }
+          if(d.column.index>=1&&d.column.index<=4){
+            const cv=m.o.covers[ck[d.column.index-1]];
+            d.cell.styles.fillColor=pdfCoverFill(cv&&cv.type);
+          }
+        }
+      });
+      y=doc.lastAutoTable.finalY+6;
+    }
 
-    // Assessor Notes & Recommendation
-    sectionTitle("Assessor Notes & Recommendation");
-    doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(...INK);
-    doc.splitTextToSize(c.assessorNotes||"—", usable-2).forEach(ln=>{ if(y>pageH-14){ doc.addPage(); y=16; } doc.text(ln, M, y); y+=4.2; });
-    y+=4;
-
-    // Raw Form
-    sectionTitle("Raw Form Responses");
-    doc.setFont("courier","normal"); doc.setFontSize(7.5); doc.setTextColor(...INK);
-    doc.splitTextToSize(c.rawForm||"—", usable-2).forEach(ln=>{ if(y>pageH-14){ doc.addPage(); y=16; } doc.text(ln, M, y); y+=3.4; });
-
-    // Footer + page numbers
+    /* ---------- header band + footer on every page ---------- */
     const total=doc.internal.getNumberOfPages();
     for(let p=1;p<=total;p++){
       doc.setPage(p);
-      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M,pageH-9,pageW-M,pageH-9);
+      if(p>1){ doc.setFillColor(...NAVY); doc.rect(0,0,pageW,14,"F"); doc.setFillColor(...PEACH); doc.rect(0,12.8,pageW,1.2,"F");
+        doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.text(name, M, 8.6);
+        doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(200,215,225);
+        doc.text("Insurance Pre-Screening Report", pageW-M, 8.6, {align:"right"}); }
+      doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M,pageH-11,pageW-M,pageH-11);
       doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...MUTED);
-      doc.text("Confidential — Coastal Advisory Australia · Insurance Pre-Screening", M, pageH-5);
-      doc.text(`${c.id} · ${name}    Page ${p} of ${total}`, pageW-M, pageH-5, {align:"right"});
+      doc.text("Confidential — Coastal Advisory Australia · Insurance Pre-Screening", M, pageH-7);
+      doc.text(`Ref ${c.id} · ${name}    Page ${p} of ${total}`, pageW-M, pageH-7, {align:"right"});
     }
     doc.save(filename);
   }catch(e){ alert("PDF export failed: "+e.message); }
@@ -1221,10 +1313,10 @@ function buildReport(c){
       <div class="rep-raw" style="font-family:inherit;font-size:11px;white-space:pre-wrap">${esc(c.assessorNotes)||"—"}</div>
     </div>
 
-    <div class="rep-sec">
-      <h3>Raw Form Responses</h3>
-      <div class="rep-raw">${esc(c.rawForm)||"—"}</div>
-    </div>
+    ${c.cleanSummary&&c.cleanSummary.trim()?`<div class="rep-sec">
+      <h3>Summary</h3>
+      <div class="rep-raw" style="font-family:inherit;font-size:11px;white-space:pre-wrap">${esc(c.cleanSummary)}</div>
+    </div>`:""}
 
     <div class="rep-foot"><span>Confidential — Coastal Advisory Australia · Insurance Pre-Screening</span><span>${esc(c.id)} · ${esc(c.fullName)}</span></div>
   `;
@@ -1250,6 +1342,9 @@ function panel(title,icon,rows){
   return `<div class="panel${collapsed}${tall}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
 }
 function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
+// grow a textarea to fit its content
+function autoGrow(el){ if(!el)return; el.style.height="auto"; el.style.height=Math.max(44, el.scrollHeight+2)+"px"; }
+function autoGrowAll(){ document.querySelectorAll(".insurertbl textarea.notes").forEach(autoGrow); }
 // Render the AI summary preserving line breaks (so it survives copy-paste into email) + bold section headings.
 function summaryHtml(text){
   return (text||"").split("\n").map(line=>{
@@ -1363,21 +1458,19 @@ function insurerSection(c){
           <label>Sent<input type="date" value="${esc(io.dateSent)}" onchange="setInsurerField('${c.id}','${io.id}','dateSent',this.value)"></label>
           <label>Rec'd<input type="date" value="${esc(io.dateReceived)}" onchange="setInsurerField('${c.id}','${io.id}','dateReceived',this.value)"></label>
         </div>
+        <input class="occinput" type="text" value="${esc(io.occRatingDetail)}" placeholder="Occupation rating…" onchange="setInsurerField('${c.id}','${io.id}','occRatingDetail',this.value)">
       </td>
       ${coverCell(c.id,io.id,'Life',io.covers.Life)}
       ${coverCell(c.id,io.id,'TPD',io.covers.TPD)}
       ${coverCell(c.id,io.id,'Trauma',io.covers.Trauma)}
       ${coverCell(c.id,io.id,'IncomeProtection',io.covers.IncomeProtection)}
-      <td class="occ">
-        <textarea class="notes" placeholder="Occupation rating…" onchange="setInsurerField('${c.id}','${io.id}','occRatingDetail',this.value)">${esc(io.occRatingDetail)}</textarea>
-      </td>
-      <td class="notes"><textarea class="notes" placeholder="Notes…" onchange="setInsurerField('${c.id}','${io.id}','notes',this.value)">${esc(io.notes)}</textarea></td>
+      <td class="notes"><textarea class="notes" placeholder="Notes…" oninput="autoGrow(this)" onchange="setInsurerField('${c.id}','${io.id}','notes',this.value)">${esc(io.notes)}</textarea></td>
       <td class="no-print"><button class="icnbtn" onclick="delInsurer('${c.id}','${io.id}')">Del</button></td>
     </tr>`;
   }).join("");
   const body = c.insurerOutcomes.length
     ? `<div class="insurerscroll"><table class="insurertbl">
-        <thead><tr><th>Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Occupation Rating</th><th>Notes</th><th class="no-print"></th></tr></thead>
+        <thead><tr><th>Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Notes</th><th class="no-print"></th></tr></thead>
         <tbody>${rows}</tbody></table></div>
         <datalist id="insurerList">${INSURERS.map(x=>`<option value="${esc(x)}"></option>`).join("")}</datalist>`
     : `<div class="empty">No insurers listed. Use “+ Standard panel” to load the full panel.</div>`;

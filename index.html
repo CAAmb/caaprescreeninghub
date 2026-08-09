@@ -983,7 +983,7 @@ function exportPdf(caseId){
     const M=14, usable=pageW-2*M;
     const name=(c.fullName||"").trim()||"—";
     const days=daysToComplete(c);
-    const BAND=30;
+    const BAND=38, CONT=22; // CONT = content start on continuation pages (slim 14mm band + gap)
 
     /* ---------- page furniture ---------- */
     const logoEl=document.querySelector(".brandlogo");
@@ -992,19 +992,19 @@ function exportPdf(caseId){
       doc.setFillColor(...NAVY); doc.rect(0,0,pageW,BAND,"F");
       doc.setFillColor(...PEACH); doc.rect(0,BAND-1.2,pageW,1.2,"F");
       if(hasLogo){
-        const h=11, w=h*(logoEl.naturalWidth/logoEl.naturalHeight);
+        const h=19, w=h*(logoEl.naturalWidth/logoEl.naturalHeight);
         try{ doc.addImage(logoEl,"PNG",M,(BAND-1.2-h)/2,w,h); }catch(e){ bandText(); }
       } else bandText();
-      doc.setTextColor(255); doc.setFont("helvetica","normal"); doc.setFontSize(9);
-      doc.text("Insurance Pre-Screening Report", pageW-M, 13, {align:"right"});
+      doc.setTextColor(255); doc.setFont("helvetica","normal"); doc.setFontSize(9.5);
+      doc.text("Insurance Pre-Screening Report", pageW-M, 17, {align:"right"});
       doc.setFontSize(7.5); doc.setTextColor(200,215,225);
-      doc.text("Confidential", pageW-M, 18.5, {align:"right"});
+      doc.text("Confidential", pageW-M, 22.5, {align:"right"});
     }
     function bandText(){
-      doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(12);
-      doc.text("Coastal Advisory Australia", M, 13);
-      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(200,215,225);
-      doc.text("Plan everything. Regret nothing.", M, 18.5);
+      doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+      doc.text("Coastal Advisory Australia", M, 17);
+      doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(200,215,225);
+      doc.text("Plan everything. Regret nothing.", M, 23);
     }
     drawBand();
 
@@ -1041,7 +1041,7 @@ function exportPdf(caseId){
     y+=15;
 
     /* ---------- helpers ---------- */
-    const need=(mm)=>{ if(y+mm>pageH-16){ doc.addPage(); y=BAND-10; } };
+    const need=(mm)=>{ if(y+mm>pageH-16){ doc.addPage(); y=CONT; } };
     const sectionTitle=(t)=>{
       need(16);
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...NAVY);
@@ -1054,18 +1054,34 @@ function exportPdf(caseId){
       styles:{fontSize:7.6,cellPadding:2,overflow:"linebreak",lineColor:LINE,lineWidth:0.15,textColor:INK,valign:"top"},
       headStyles:{fillColor:NAVY,textColor:255,fontSize:7,fontStyle:"bold",cellPadding:2.2},
       alternateRowStyles:{fillColor:ALT},
-      margin:{left:M,right:M,top:BAND-10,bottom:16}};
-    // paired key/value table (2 pairs per line) — compact but readable
+      margin:{left:M,right:M,top:CONT,bottom:18}};
+    // key/value section — short values pack 2-per-line; long values get their own full-width row.
+    // (Keeps rows uniform so labels never drift away from their values.)
     function kvTable(rows){
+      const shortR=[], longR=[];
+      rows.forEach(r=>{
+        if(!r||!r[0]) return;
+        const v=cleanVal(r[1]);
+        (v.length>52 ? longR : shortR).push([r[0], v||"—"]);
+      });
       const pairs=[];
-      for(let i=0;i<rows.length;i+=2){
-        const a=rows[i], b=rows[i+1];
-        pairs.push([a[0], (a[1]===0||a[1])?String(a[1]):"—", b?b[0]:"", b?((b[1]===0||b[1])?String(b[1]):"—"):""]);
+      for(let i=0;i<shortR.length;i+=2){
+        const a=shortR[i], b=shortR[i+1];
+        pairs.push([a[0],a[1], b?b[0]:"", b?b[1]:""]);
       }
-      doc.autoTable({...tbl, startY:y, body:pairs,
-        styles:{...tbl.styles,fontSize:7.4,cellPadding:1.8},
-        columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:53,fontStyle:"bold"},2:{cellWidth:38,textColor:MUTED},3:{cellWidth:53,fontStyle:"bold"}}});
-      y=doc.lastAutoTable.finalY+7;
+      if(pairs.length){
+        doc.autoTable({...tbl, startY:y, body:pairs,
+          styles:{...tbl.styles,fontSize:7.4,cellPadding:1.8},
+          columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:53,fontStyle:"bold"},2:{cellWidth:38,textColor:MUTED},3:{cellWidth:53,fontStyle:"bold"}}});
+        y=doc.lastAutoTable.finalY;
+      }
+      if(longR.length){
+        doc.autoTable({...tbl, startY:y, body:longR,
+          styles:{...tbl.styles,fontSize:7.4,cellPadding:1.8},
+          columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:usable-38}}});
+        y=doc.lastAutoTable.finalY;
+      }
+      y+=7;
     }
 
     /* ---------- AI summary ---------- */
@@ -1099,7 +1115,7 @@ function exportPdf(caseId){
     sectionTitle("Client Details");
     kvTable([["Full name",name],["Date of birth",c.dob?`${c.dob} (${age(c.dob)})`:""],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m],
       ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Applied for PR",c.appliedForPR],["Current visa",c.currentVisaDetail],
-      ["Overseas location",c.overseasLocationDetail],["Travel abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail],["",""]]);
+      ["Overseas location",c.overseasLocationDetail],["Travel abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]]);
 
     sectionTitle("Occupational & Financial");
     kvTable([["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],
@@ -1118,13 +1134,14 @@ function exportPdf(caseId){
     {
       const body=[], meta=[];
       c.healthIssues.forEach(h=>{
-        body.push([h.category||"—",(h.diagnosis||"—")+(h.bodyArea?`\n${h.bodyArea}`:""),`${h.dateFirstSymptoms||"—"} → ${h.dateLastSymptoms||"—"}`,h.treatmentStatus||"—",h.surgery==="Yes"?("Yes"+(h.surgeryDate?`\n${h.surgeryDate}`:"")):"No",h.fullyRecovered||"—"]);
+        const area=cleanVal(h.bodyArea), d1=cleanVal(h.dateFirstSymptoms), d2=cleanVal(h.dateLastSymptoms);
+        body.push([cleanVal(h.category)||"—",(cleanVal(h.diagnosis)||"—")+(area?`\n${area}`:""),`${d1||"—"} → ${d2||"—"}`,cleanVal(h.treatmentStatus)||"—",h.surgery==="Yes"?("Yes"+(cleanVal(h.surgeryDate)?`\n${cleanVal(h.surgeryDate)}`:"")):"No",cleanVal(h.fullyRecovered)||"—"]);
         meta.push("main");
         const extras=[];
-        if(h.severity) extras.push("Severity: "+h.severity);
-        if(h.occupationRelated) extras.push("Occupation related: "+h.occupationRelated);
-        if(h.timeOffWork) extras.push("Time off work: "+h.timeOffWork);
-        if(h.assessorNotes) extras.push("Notes: "+h.assessorNotes);
+        if(cleanVal(h.severity)) extras.push("Severity: "+cleanVal(h.severity));
+        if(cleanVal(h.occupationRelated)) extras.push("Occupation related: "+cleanVal(h.occupationRelated));
+        if(cleanVal(h.timeOffWork)) extras.push("Time off work: "+cleanVal(h.timeOffWork));
+        if(cleanVal(h.assessorNotes)) extras.push("Notes: "+cleanVal(h.assessorNotes));
         if(extras.length){ body.push([{content:extras.join("   ·   "),colSpan:6}]); meta.push("sub"); }
       });
       doc.autoTable({...tbl, startY:y,
@@ -1144,36 +1161,54 @@ function exportPdf(caseId){
       columnStyles:{0:{cellWidth:92,fontStyle:"bold"},1:{cellWidth:58},2:{cellWidth:32}}});
     y=doc.lastAutoTable.finalY+7;
 
-    /* ---------- insurer outcomes ---------- */
+    /* ---------- insurer outcomes (own page so the panel stays together) ---------- */
+    doc.addPage(); y=CONT;
     sectionTitle(`Insurer Outcomes (${c.insurerOutcomes.length})`);
     {
       const ck=["Life","TPD","Trauma","IncomeProtection"];
-      const cellText=(cv)=>{ const t=(cv&&cv.type)||"Not assessed"; const d=coverDetailText(cv); return t+(d?`\n${d}`:""); };
+      const cellText=(cv)=>{ const t=(cv&&cv.type)||"Not assessed"; const d=cleanVal(coverDetailText(cv)); return t+(d?`\n${d}`:""); };
       const body=[], meta=[];
       c.insurerOutcomes.forEach(o=>{
-        body.push([(o.insurerName||"—")+`\nSent ${o.dateSent||"—"}\nRec'd ${o.dateReceived||"pending"}`,cellText(o.covers.Life),cellText(o.covers.TPD),cellText(o.covers.Trauma),cellText(o.covers.IncomeProtection)]);
+        body.push([(cleanVal(o.insurerName)||"—")+`\nSent ${cleanVal(o.dateSent)||"—"}\nRec'd ${cleanVal(o.dateReceived)||"pending"}`,cellText(o.covers.Life),cellText(o.covers.TPD),cellText(o.covers.Trauma),cellText(o.covers.IncomeProtection)]);
         meta.push({kind:"main",o});
         const extras=[];
-        if(o.occRatingDetail) extras.push("Occupation rating: "+o.occRatingDetail);
-        if(o.notes) extras.push("Notes: "+o.notes);
+        if(cleanVal(o.occRatingDetail)) extras.push("Occupation rating: "+cleanVal(o.occRatingDetail));
+        if(cleanVal(o.notes)) extras.push("Notes: "+cleanVal(o.notes));
         if(extras.length){ body.push([{content:extras.join("   ·   "),colSpan:5}]); meta.push({kind:"sub"}); }
       });
       doc.autoTable({...tbl, startY:y,
-        styles:{...tbl.styles,fontSize:7},
+        styles:{...tbl.styles,fontSize:6.6,cellPadding:1.5},
+        headStyles:{...tbl.headStyles,fontSize:6.6,cellPadding:1.8},
         head:[["Insurer","Life","TPD","Trauma","Income Protection"]],
         body: body.length?body:[[{content:"No insurers listed.",colSpan:5,styles:{textColor:MUTED,fontStyle:"italic"}}]],
-        columnStyles:{0:{cellWidth:34,fontStyle:"bold"},1:{cellWidth:37},2:{cellWidth:37},3:{cellWidth:37},4:{cellWidth:37}},
+        columnStyles:{0:{cellWidth:32,fontStyle:"bold"},1:{cellWidth:37.5},2:{cellWidth:37.5},3:{cellWidth:37.5},4:{cellWidth:37.5}},
         didParseCell:(d)=>{
           if(d.section!=="body")return;
           const m=meta[d.row.index]; if(!m)return;
-          if(m.kind==="sub"){ d.cell.styles.fontSize=6.9; d.cell.styles.textColor=MUTED; d.cell.styles.fillColor=[252,253,253]; return; }
+          if(m.kind==="sub"){ d.cell.styles.fontSize=6.3; d.cell.styles.textColor=MUTED; d.cell.styles.fillColor=[252,253,253]; return; }
           if(d.column.index>=1&&d.column.index<=4){
             const cv=m.o.covers[ck[d.column.index-1]];
             d.cell.styles.fillColor=pdfCoverFill(cv&&cv.type);
           }
         }
       });
-      y=doc.lastAutoTable.finalY+6;
+      y=doc.lastAutoTable.finalY+8;
+    }
+
+    /* ---------- important note (end of report) ---------- */
+    {
+      const note="The outcomes recorded in this report are indicative only. They are based on the information disclosed by the client at the time of pre-assessment and on preliminary feedback from insurers. They do not constitute an offer of cover, a recommendation, or a guarantee of terms. Formal underwriting may request further information or medical evidence, and may identify matters not disclosed at pre-assessment, which can result in different terms, additional loadings, exclusions, a postponement or a decline. Cover is only in place once it has been formally accepted in writing by the insurer.";
+      const lines=doc.splitTextToSize(note, usable-10);
+      const boxH=lines.length*3.4+9;
+      if(y+boxH>pageH-16){ doc.addPage(); y=CONT; }
+      doc.setFillColor(248,250,251); doc.setDrawColor(...LINE); doc.setLineWidth(0.3);
+      doc.roundedRect(M,y,usable,boxH,2,2,"FD");
+      doc.setFillColor(...PEACH); doc.rect(M,y,1.6,boxH,"F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(7.6); doc.setTextColor(...NAVY);
+      doc.text("Important — indicative outcomes only", M+5, y+5);
+      doc.setFont("helvetica","normal"); doc.setFontSize(6.9); doc.setTextColor(...MUTED);
+      lines.forEach((ln,i)=>doc.text(ln, M+5, y+9.4+i*3.4));
+      y+=boxH+6;
     }
 
     /* ---------- header band + footer on every page ---------- */
@@ -1322,6 +1357,19 @@ function buildReport(c){
   `;
 }
 
+// Tidy values coming from the Forms automation: ["No"] → No, "| | |" → blank, strip empty pipe segments.
+function cleanVal(v){
+  if(v===0) return "0";
+  if(v==null||v==="") return "";
+  let s=String(v).trim();
+  if(/^\[.*\]$/.test(s)){
+    try{ const a=JSON.parse(s); if(Array.isArray(a)) s=a.filter(x=>x!=null&&String(x).trim()!=="").join(", "); }
+    catch(e){ s=s.replace(/^\[|\]$/g,"").replace(/"/g,"").trim(); }
+  }
+  if(/^[\s|,;·-]*$/.test(s)) return "";           // separator-only junk
+  s=s.split("|").map(x=>x.trim()).filter(x=>x!=="").join(" | ");
+  return s;
+}
 function bmi(c){ if(!c.heightCm||!c.weightKg)return""; const m=c.heightCm/100; return (c.weightKg/(m*m)).toFixed(1); }
 function bmiCat(b){ b=parseFloat(b); if(!b)return""; if(b<18.5)return"underweight"; if(b<25)return"healthy"; if(b<30)return"overweight"; return"obese"; }
 function bmiFlagged(b){ b=parseFloat(b); return b>=28; }

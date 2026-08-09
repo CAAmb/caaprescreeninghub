@@ -261,6 +261,7 @@
   .insurertbl tbody tr:nth-child(even) td{background:#eef3f6}
   .insurertbl tbody tr:hover td{background:var(--sky)}
   .insurertbl tbody tr.row-complete td{background:#e7f6ee !important}
+  .insurertbl tbody tr.row-awaiting td{background:#fdf0e3 !important}
   .insurertbl tr:last-child td{border-bottom:none}
   .insurertbl td.insurercell{border-left:4px solid var(--navy)}
   .insurertbl tbody tr:nth-child(even) td.insurercell{border-left-color:var(--peach)}
@@ -1197,17 +1198,20 @@ function exportPdf(caseId){
 
     /* ---------- important note (end of report) ---------- */
     {
-      const note="The outcomes recorded in this report are indicative only. They are based on the information disclosed by the client at the time of pre-assessment and on preliminary feedback from insurers. They do not constitute an offer of cover, a recommendation, or a guarantee of terms. Formal underwriting may request further information or medical evidence, and may identify matters not disclosed at pre-assessment, which can result in different terms, additional loadings, exclusions, a postponement or a decline. Cover is only in place once it has been formally accepted in writing by the insurer.";
-      const lines=doc.splitTextToSize(note, usable-10);
-      const boxH=lines.length*3.4+9;
+      const note="The outcomes recorded in this report are indicative only. They are based on the information disclosed by the client at the time of pre-assessment and on preliminary feedback from insurers. They do not constitute an offer of cover, a recommendation, or a guarantee of terms. Formal underwriting may identify matters not disclosed at pre-screening and request further information or medical evidence, which may result in different terms, additional loadings, exclusions, a postponement or a decline.";
+      const padL=5.5, textW=usable-padL-4;
+      // set the font BEFORE measuring so the wrap matches the rendered size (full box width)
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.4);
+      const lines=doc.splitTextToSize(note, textW);
+      const boxH=lines.length*3.7+10.5;
       if(y+boxH>pageH-16){ doc.addPage(); y=CONT; }
       doc.setFillColor(248,250,251); doc.setDrawColor(...LINE); doc.setLineWidth(0.3);
       doc.roundedRect(M,y,usable,boxH,2,2,"FD");
       doc.setFillColor(...PEACH); doc.rect(M,y,1.6,boxH,"F");
-      doc.setFont("helvetica","bold"); doc.setFontSize(7.6); doc.setTextColor(...NAVY);
-      doc.text("Important — indicative outcomes only", M+5, y+5);
-      doc.setFont("helvetica","normal"); doc.setFontSize(6.9); doc.setTextColor(...MUTED);
-      lines.forEach((ln,i)=>doc.text(ln, M+5, y+9.4+i*3.4));
+      doc.setFont("helvetica","bold"); doc.setFontSize(8); doc.setTextColor(...NAVY);
+      doc.text("Disclaimer", M+padL, y+5.4);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.4); doc.setTextColor(...MUTED);
+      lines.forEach((ln,i)=>doc.text(ln, M+padL, y+10.2+i*3.7));
       y+=boxH+6;
     }
 
@@ -1497,8 +1501,10 @@ function coverTint(t){
 }
 function insurerSection(c){
   const rows = c.insurerOutcomes.map(io=>{
-    const complete = COVER_KEYS.every(k=>io.covers[k] && io.covers[k].type && io.covers[k].type!=="Not assessed");
-    return `<tr class="${complete?"row-complete":""}">
+    const allSet = COVER_KEYS.every(k=>io.covers[k] && io.covers[k].type && io.covers[k].type!=="Not assessed");
+    const awaiting = COVER_KEYS.some(k=>io.covers[k] && io.covers[k].type==="Further information");
+    const rowCls = awaiting ? "row-awaiting" : (allSet ? "row-complete" : "");
+    return `<tr class="${rowCls}">
       <td class="insurercell">
         <input class="nm" list="insurerList" value="${esc(io.insurerName)}" placeholder="Insurer…" autocomplete="off"
           onchange="setInsurerField('${c.id}','${io.id}','insurerName',this.value)">

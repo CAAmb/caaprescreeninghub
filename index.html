@@ -334,15 +334,8 @@
   .print-only{display:none}
   @media print{ .print-only{display:block!important} }
 
-  /* ===== Dedicated print report (landscape A4) ===== */
+  /* Print & Export PDF both render the same jsPDF report (see exportPdf) — no separate HTML print layout. */
   #printReport{display:none}
-  @media print{
-    @page{size:A4 landscape;margin:9mm}
-    body.viewing-case > header.topbar,
-    body.viewing-case > .wrap{display:none!important}
-    body.viewing-case #printReport{display:block!important}
-  }
-  #printReport{color:#1c2b36;font-size:9.5px;line-height:1.4}
   .rep-header{display:flex;align-items:center;gap:14px;border-bottom:3px solid var(--navy);padding-bottom:9px;margin-bottom:12px}
   .rep-logo{width:40px;height:40px;border-radius:8px;background:var(--navy);color:#fff;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .rep-brand b{display:block;font-size:15px;color:var(--navy)}
@@ -355,6 +348,9 @@
   .rep-status.done{background:#e6f6ee;color:#1f8a5b}
   .rep-mgmt{display:flex;flex-wrap:wrap;gap:8px 22px;background:var(--sky);border-radius:7px;padding:8px 12px;margin-bottom:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .rep-mgmt b{color:var(--navy)}
+  .rep-notes{background:var(--sky);border:1px solid var(--navy);border-left:4px solid var(--navy);border-radius:6px;padding:9px 12px;margin-bottom:12px;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .rep-notes h4{font-size:11px;color:var(--navy);margin:0 0 4px}
+  .rep-notes div{font-size:10.5px;line-height:1.5;white-space:pre-wrap;color:var(--ink)}
   .rep-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:12px}
   .rep-panel{border:1px solid #cfd6db;border-radius:7px;overflow:hidden;break-inside:avoid}
   .rep-panel h4{background:var(--sky);color:var(--navy);font-size:9.5px;padding:5px 8px;text-transform:uppercase;letter-spacing:.4px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -901,13 +897,12 @@ function renderDetail(id){
         <button class="btn ghost sm" onclick="openCaseModal('${c.id}')">Edit details</button>
         <button class="btn sm" onclick="toggleStatus('${c.id}')">${c.status==="Complete"?"Reopen (In Progress)":"Mark Complete"}</button>
         <button class="btn peach sm" id="exportBtn" onclick="exportPdf('${c.id}')">⬇ Export PDF</button>
-        <button class="btn ghost sm" onclick="window.print()">🖨 Print</button>
         <button class="btn danger sm" onclick="deleteCase('${c.id}')">🗑 Delete case</button>
       </div>
     </div>
 
-    ${c.cleanSummary?`<div class="section"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
     <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
+    ${c.cleanSummary?`<div class="section"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
 
     <div class="panelgrid">
       ${panel("Personal","👤",[
@@ -945,7 +940,6 @@ function renderDetail(id){
     ${familySection(c)}
     ${insurerSection(c)}
   `;
-  document.getElementById("printReport").innerHTML = buildReport(c);
   autoGrowAll();
 }
 
@@ -968,13 +962,11 @@ function pdfCoverFill(type){
   }
 }
 // Native vector PDF (jsPDF + AutoTable) — portrait A4, branded report.
-function exportPdf(caseId){
+function exportPdf(caseId, mode){
   const c=getCase(caseId);
   const filename=reportFilename(c)+".pdf";
-  const btn=document.getElementById("exportBtn");
-  if(!window.jspdf||!window.jspdf.jsPDF){
-    const t=document.title; document.title=reportFilename(c); window.print(); setTimeout(()=>{document.title=t;},1000); return;
-  }
+  const btn=document.getElementById(mode==="print"?"printBtn":"exportBtn");
+  if(!window.jspdf||!window.jspdf.jsPDF){ alert("PDF library not loaded — check jspdf.umd.min.js is present."); return; }
   if(btn){ btn.disabled=true; btn.textContent="Generating…"; }
   try{
     const { jsPDF }=window.jspdf;
@@ -1086,6 +1078,28 @@ function exportPdf(caseId){
     }
 
     /* ---------- AI summary ---------- */
+    /* ---------- assessor notes & recommendation (lead section — highlighted) ---------- */
+    {
+      const notes=(c.assessorNotes && c.assessorNotes.trim()) ? c.assessorNotes.trim() : "No assessor notes recorded.";
+      const padX=6, textW=usable-padX*2;
+      doc.setFont("helvetica","normal"); doc.setFontSize(9.2);
+      const paras=notes.split("\n");
+      const wrapped=[];
+      paras.forEach(p=>{ if(!p.trim()){ wrapped.push(null); return; } doc.splitTextToSize(p, textW).forEach(s=>wrapped.push(s)); });
+      const boxH=wrapped.reduce((h,l)=>h+(l===null?2.4:4.6),0)+13;
+      need(boxH+4);
+      doc.setFillColor(...SKY); doc.setDrawColor(...NAVY); doc.setLineWidth(0.4);
+      doc.roundedRect(M,y,usable,boxH,2.5,2.5,"FD");
+      doc.setFillColor(...NAVY); doc.rect(M,y,2.4,boxH,"F");
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(...NAVY);
+      doc.text("Assessor Notes & Recommendation", M+padX, y+6.6);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9.2); doc.setTextColor(...INK);
+      let ty=y+12.4;
+      wrapped.forEach(l=>{ if(l===null){ ty+=2.4; return; } doc.text(l, M+padX, ty); ty+=4.6; });
+      y+=boxH+8;
+    }
+
+    /* ---------- AI summary ---------- */
     if(c.cleanSummary && c.cleanSummary.trim()){
       sectionTitle("Summary");
       doc.setFontSize(8.6);
@@ -1095,6 +1109,7 @@ function exportPdf(caseId){
         if(!t){ y+=2.6; return; }
         const isHeading = t.length<=42 && t===t.toUpperCase() && /[A-Z]/.test(t);
         doc.setFont("helvetica", isHeading?"bold":"normal");
+        doc.setFontSize(8.6);
         doc.setTextColor(...(isHeading?NAVY:INK));
         if(isHeading) y+=1.5;
         doc.splitTextToSize(line, usable).forEach(seg=>{ need(6); doc.text(seg, M, y); y+=4.1; });
@@ -1102,15 +1117,6 @@ function exportPdf(caseId){
       });
       y+=5;
     }
-
-    /* ---------- assessor notes ---------- */
-    sectionTitle("Assessor Notes & Recommendation");
-    doc.setFont("helvetica","normal"); doc.setFontSize(8.6); doc.setTextColor(...INK);
-    (c.assessorNotes && c.assessorNotes.trim() ? c.assessorNotes : "—").split("\n").forEach(raw=>{
-      if(!raw.trim()){ y+=2.6; return; }
-      doc.splitTextToSize(raw, usable).forEach(seg=>{ need(6); doc.text(seg, M, y); y+=4.1; });
-    });
-    y+=7;
 
     /* ---------- client details ---------- */
     sectionTitle("Client Details");
@@ -1228,9 +1234,16 @@ function exportPdf(caseId){
       doc.text("Confidential — Coastal Advisory Australia · Insurance Pre-Screening", M, pageH-7);
       doc.text(`Ref ${c.id} · ${name}    Page ${p} of ${total}`, pageW-M, pageH-7, {align:"right"});
     }
-    doc.save(filename);
+    if(mode==="print"){
+      doc.autoPrint();
+      const url=doc.output("bloburl");
+      const w=window.open(url,"_blank");
+      if(!w) toast("Allow pop-ups to print, or use Export PDF","err");
+    } else {
+      doc.save(filename);
+    }
   }catch(e){ alert("PDF export failed: "+e.message); }
-  finally{ if(btn){ btn.disabled=false; btn.textContent="⬇ Export PDF"; } }
+  finally{ if(btn){ btn.disabled=false; btn.textContent=(mode==="print"?"🖨 Print":"⬇ Export PDF"); } }
 }
 function coverDetailText(cv){
   if(!cv) return "";
@@ -1254,6 +1267,8 @@ function repPanel(title,rows){
   const body=rows.map(([k,v])=>`<tr><td class="rk">${esc(k)}</td><td class="rv">${(v===0||v)?esc(v):"—"}</td></tr>`).join("");
   return `<div class="rep-panel"><h4>${esc(title)}</h4><table class="rep-kv">${body}</table></div>`;
 }
+/* LEGACY / UNUSED: the old HTML print layout. Print and Export PDF now both use exportPdf()
+   so there is only one report layout to maintain. Kept for reference only — do not wire back up. */
 function buildReport(c){
   const cats=[...new Set(c.healthIssues.map(h=>h.category))];
   // health issues table
@@ -1302,6 +1317,11 @@ function buildReport(c){
       <span>Days to complete: <b>${(()=>{const d=daysToComplete(c);return d!=null?d+" day"+(d!==1?"s":""):"—";})()}</b></span>
     </div>
 
+    <div class="rep-notes">
+      <h4>Assessor Notes &amp; Recommendation</h4>
+      <div>${esc(c.assessorNotes && c.assessorNotes.trim() ? c.assessorNotes : "No assessor notes recorded.")}</div>
+    </div>
+
     <div class="rep-panels">
       ${repPanel("Personal",[
         ["Full name",c.fullName],["Date of birth",`${c.dob||""}${c.dob?` (${age(c.dob)} yrs)`:""}`],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m]
@@ -1345,11 +1365,6 @@ function buildReport(c){
       <table class="rep-tbl"><thead><tr>
         <th style="width:15%">Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Occupation Rating</th><th style="width:16%">Notes</th>
       </tr></thead><tbody>${io}</tbody></table>
-    </div>
-
-    <div class="rep-sec">
-      <h3>Assessor Notes &amp; Recommendation</h3>
-      <div class="rep-raw" style="font-family:inherit;font-size:11px;white-space:pre-wrap">${esc(c.assessorNotes)||"—"}</div>
     </div>
 
     ${c.cleanSummary&&c.cleanSummary.trim()?`<div class="rep-sec">

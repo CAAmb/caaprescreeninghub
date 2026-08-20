@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mat's Amazing Pre-Screening Hub</title>
+<title>CAA Pre-Screening Hub</title>
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -58,7 +58,7 @@
   /* ---- Brand logo ---- */
   .ca-mark{width:100%;height:100%;display:block}
   .brandlogo{height:46px;width:auto;display:block;flex:0 0 auto}
-  .apppill{margin-left:16px;border:1.5px solid var(--peach);color:var(--peach);text-transform:uppercase;letter-spacing:1.2px;font-weight:700;font-size:13px;padding:8px 18px;border-radius:24px;white-space:nowrap;line-height:1}
+  .appname{margin-left:18px;padding-left:18px;border-left:1px solid rgba(255,255,255,.28);color:#fff;font-size:16px;font-weight:600;letter-spacing:.2px;white-space:nowrap}
   .login-logo img{max-height:104px;width:auto;display:block;margin:0 auto 8px}
   /* ---- Login / landing ---- */
   #loginView{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
@@ -434,7 +434,7 @@
       <circle cx="60" cy="50" r="4.6" fill="currentColor" stroke="none"/>
     </svg>
   </div>
-  <div class="apppill">Mat's Amazing Insurance Pre-Screening Hub</div>
+  <div class="appname">Pre-Screening Hub</div>
   <div class="spacer"></div>
   <div class="crumb" id="crumb"></div>
   <span class="syncstat" id="syncStatus"></span>
@@ -1435,11 +1435,39 @@ function openSendToInsurer(id){
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
      <button class="btn peach" onclick="sendToInsurer('${id}')">Copy summary &amp; open email</button>`);
 }
+// Record that we've sent to this insurer: add to Insurer Outcomes with today's Sent date.
+// Never duplicates; never overwrites an existing Sent date.
+function recordInsurerSent(c, insurerKey){
+  const nm=String(insurerKey||"").replace(/\s*\(.*\)\s*$/,"").trim();   // "PPS Mutual (Murray)" → "PPS Mutual"
+  if(!nm) return "none";
+  const existing=c.insurerOutcomes.find(io=>(io.insurerName||"").trim().toLowerCase()===nm.toLowerCase());
+  if(existing){
+    if(!existing.dateSent){ existing.dateSent=todayStr(); persist(saveInsurerRemote(c,existing)); return "dated"; }
+    return "exists";
+  }
+  const io=newInsurerCard(nm);
+  io.dateSent=todayStr();
+  c.insurerOutcomes.push(io);
+  persist(saveInsurerRemote(c,io));
+  return "added";
+}
+function announceRecorded(res, nm){
+  if(res==="added") toast(nm+" added to Insurer Outcomes (sent "+todayStr()+")");
+  else if(res==="dated") toast(nm+" already listed — sent date set to "+todayStr());
+  else if(res==="exists") toast(nm+" is already in Insurer Outcomes — not changed");
+}
 function sendToInsurer(id){
   const c=getCase(id); if(!c)return;
   const insurer=gv("sendInsurer");
   const ct=INSURER_CONTACTS[insurer]||{};
-  if(ct.portal){ closeModal(); alert(insurer+" pre-assessments are submitted via the "+insurer+" portal, not by email."); return; }
+  const shortName=String(insurer||"").replace(/\s*\(.*\)\s*$/,"").trim();
+  if(ct.portal){
+    const res=recordInsurerSent(c,insurer);
+    closeModal(); renderDetail(id);
+    alert(insurer+" pre-assessments are submitted via the "+insurer+" portal, not by email.\n\n"+
+      (res==="exists" ? insurer+" is already listed in Insurer Outcomes." : insurer+" has been recorded in Insurer Outcomes with today's sent date."));
+    return;
+  }
   const subject=(ct.subject||"XX - Pre-Assessment").replace("XX", initials(c));
   const preamble="Hi,\n\nPlease find our pre-screening summary below for consideration.\n\n";
   const params=[];
@@ -1447,10 +1475,17 @@ function sendToInsurer(id){
   params.push("subject="+encodeURIComponent(subject));
   params.push("body="+encodeURIComponent(preamble));
   const url="mailto:"+encodeURIComponent(ct.to||"")+"?"+params.join("&");
-  const openMail=()=>{ closeModal(); if(!ct.to) toast("No recipient set for "+insurer+" — add it in Outlook","err"); window.location.href=url; };
+  const openMail=()=>{
+    closeModal();
+    const res=recordInsurerSent(c,insurer);
+    renderDetail(id);
+    if(!ct.to) toast("No recipient set for "+insurer+" — add it in Outlook","err");
+    else announceRecorded(res, shortName);
+    window.location.href=url;
+  };
   const summary=c.cleanSummary||"";
   if(summary && navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(summary).then(()=>{ toast("Summary copied — paste into the email (Ctrl+V)"); openMail(); }, ()=>{ toast("Couldn't copy summary; opening email anyway","err"); openMail(); });
+    navigator.clipboard.writeText(summary).then(openMail, ()=>{ toast("Couldn't copy summary; opening email anyway","err"); openMail(); });
   } else { openMail(); }
 }
 

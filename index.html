@@ -263,7 +263,16 @@
   .kv dd{margin:0;color:var(--ink);font-weight:500;word-break:break-word}
   .summarybox{font-size:13px;line-height:1.6;color:var(--ink);max-height:440px;overflow:auto}
   .summarybox strong{color:var(--navy)}
-  .casenotes{width:100%;min-height:88px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;resize:vertical}
+  .pickhead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;color:var(--muted)}
+  .pickhead span{flex:1;font-weight:600}
+  .inspicker{border:1px solid var(--line);border-radius:9px;overflow:hidden;max-height:46vh;overflow-y:auto}
+  .inspick{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13.5px;background:var(--surface)}
+  .inspick:last-child{border-bottom:none}
+  .inspick:hover{background:var(--sky)}
+  .inspick input{width:16px;height:16px;accent-color:var(--bar);flex:0 0 auto}
+  .inspick .ipname{flex:1;font-weight:600;color:var(--navy)}
+  .inspick .ipnote{font-size:11.5px;color:var(--muted);font-style:italic}
+  .casenotes{width:100%;min-height:88px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:inherit;font-size:13px;resize:vertical;background:var(--surface);color:var(--ink)}
   .casenotes:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
 
   .section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden}
@@ -879,7 +888,7 @@ function renderCases(){
       <div class="avatar">${initials(c)}</div>
       <div class="cmain">
         <div class="cname">${esc(c.fullName)} ${cxBadge}</div>
-        <div class="cmeta">${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.occupation)}</div>
+        <div class="cmeta">Case Number: ${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.occupation)}</div>
         <div class="cmeta">${dateLine}</div>
         <div class="ctags">${tagHtml}</div>
       </div>
@@ -939,7 +948,7 @@ function renderDetail(id){
           <span class="pill ${c.status==="Complete"?"done":"prog"}" style="vertical-align:middle;margin-left:8px">${esc(c.status)}</span>
           ${c.complexity?`<span class="cx cx-${c.complexity}">${esc(c.complexity)}</span>`:`<span class="cx cx-none">Unassigned</span>`}
         </h1>
-        <div class="sub">${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.gender)} · ${esc(c.occupation)}</div>
+        <div class="sub">Case Number: ${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.gender)} · ${esc(c.occupation)}</div>
         <div class="sub" style="margin-top:4px">Pre-screening completed: <b>${c.preScreeningDate||"—"}</b>${(()=>{const d=daysToComplete(c);return c.status==="Complete"&&d!=null?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b> · <b class="daysbadge">${d} day${d!==1?"s":""} to complete</b>`:(c.assessmentCompletedDate?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b>`:"");})()}</div>
       </div>
       <div class="actions">
@@ -1070,7 +1079,7 @@ function exportPdf(caseId, mode){
     pill(c.status||"In Progress", c.status==="Complete"?[230,246,238]:[255,244,231], c.status==="Complete"?[31,138,91]:[196,127,42]);
     pill(c.complexity||"Unassigned", c.complexity==="Complex"?[253,238,224]:(c.complexity==="Simple"?SKY:[235,238,240]), c.complexity?NAVY:MUTED);
     doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(...MUTED);
-    doc.text(`Ref ${c.id}  ·  ${age(c.dob)} yrs  ·  ${c.gender||"—"}  ·  ${c.occupation||"—"}`, px+2, y);
+    doc.text(`Case Number: ${c.id}  ·  ${age(c.dob)} yrs  ·  ${c.gender||"—"}  ·  ${c.occupation||"—"}`, px+2, y);
     y+=8;
 
     // meta strip
@@ -1284,7 +1293,7 @@ function exportPdf(caseId, mode){
       doc.setDrawColor(...LINE); doc.setLineWidth(0.2); doc.line(M,pageH-11,pageW-M,pageH-11);
       doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(...MUTED);
       doc.text("Confidential — Coastal Advisory Australia · Insurance Pre-Screening", M, pageH-7);
-      doc.text(`Ref ${c.id} · ${name}    Page ${p} of ${total}`, pageW-M, pageH-7, {align:"right"});
+      doc.text(`Case Number: ${c.id} · ${name}    Page ${p} of ${total}`, pageW-M, pageH-7, {align:"right"});
     }
     if(mode==="print"){
       doc.autoPrint();
@@ -1480,12 +1489,27 @@ function copySummary(id){
 /* ---- Send to Insurer (copy summary + open pre-addressed Outlook draft) ---- */
 function openSendToInsurer(id){
   const c=getCase(id); if(!c)return;
-  const opts=Object.keys(INSURER_CONTACTS).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join("");
-  const body=`<div class="field"><label>Insurer</label><select id="sendInsurer">${opts}</select></div>
-    <p class="muted" style="font-size:12.5px;line-height:1.5">The AI summary is copied to your clipboard and a pre-addressed Outlook email opens (To, Cc & subject filled) — just paste it into the body (Ctrl+V / Cmd+V) and send.</p>`;
+  const rows=Object.keys(INSURER_CONTACTS).map(n=>{
+    const ct=INSURER_CONTACTS[n];
+    const already=c.insurerOutcomes.some(io=>(io.insurerName||"").trim().toLowerCase()===n.replace(/\s*\(.*\)\s*$/,"").trim().toLowerCase() && io.dateSent);
+    return `<label class="inspick">
+      <input type="checkbox" class="sendIns" value="${esc(n)}">
+      <span class="ipname">${esc(n)}</span>
+      <span class="ipnote">${ct.portal?"portal — no email":(already?"already sent":"")}</span>
+    </label>`;
+  }).join("");
+  const body=`<div class="pickhead">
+      <span>Select one or more insurers</span>
+      <button class="btn ghost sm" onclick="document.querySelectorAll('.sendIns').forEach(x=>x.checked=true)">Select all</button>
+      <button class="btn ghost sm" onclick="document.querySelectorAll('.sendIns').forEach(x=>x.checked=false)">Clear</button>
+    </div>
+    <div class="inspicker">${rows}</div>
+    <p class="muted" style="font-size:12.5px;line-height:1.5;margin-top:12px">
+      One pre-addressed Outlook email opens per insurer (To, Cc &amp; subject filled), each with the summary in the body.
+      The summary is also copied to your clipboard as a backup. Each insurer is added to Insurer Outcomes with today's sent date.</p>`;
   openModal("Send to Insurer — "+esc(c.fullName||""), body,
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
-     <button class="btn peach" onclick="sendToInsurer('${id}')">Copy summary &amp; open email</button>`);
+     <button class="btn peach" onclick="sendToInsurer('${id}')">Open emails</button>`);
 }
 // Record that we've sent to this insurer: add to Insurer Outcomes with today's Sent date.
 // Never duplicates; never overwrites an existing Sent date.
@@ -1508,37 +1532,56 @@ function announceRecorded(res, nm){
   else if(res==="dated") toast(nm+" already listed — sent date set to "+todayStr());
   else if(res==="exists") toast(nm+" is already in Insurer Outcomes — not changed");
 }
+const MAILTO_MAX=1900; // browsers/Outlook truncate long mailto URLs — fall back to clipboard past this
+function buildMailto(c, insurerKey){
+  const ct=INSURER_CONTACTS[insurerKey]||{};
+  const subject=(ct.subject||"XX - Pre-Assessment").replace("XX", "Case Number: "+c.id);
+  const preamble="Hi,\n\nCan we please get a pre-assessment on the following for all cover.\n\n";
+  const summary=(c.cleanSummary||"").trim();
+  const build=(body)=>{
+    const p=[];
+    if(ct.cc) p.push("cc="+encodeURIComponent(ct.cc));
+    p.push("subject="+encodeURIComponent(subject));
+    p.push("body="+encodeURIComponent(body));
+    return "mailto:"+encodeURIComponent(ct.to||"")+"?"+p.join("&");
+  };
+  let url=build(preamble+summary), full=true;
+  if(url.length>MAILTO_MAX){ url=build(preamble); full=false; }  // too long — leave body for paste
+  return {url, full, ct};
+}
 function sendToInsurer(id){
   const c=getCase(id); if(!c)return;
-  const insurer=gv("sendInsurer");
-  const ct=INSURER_CONTACTS[insurer]||{};
-  const shortName=String(insurer||"").replace(/\s*\(.*\)\s*$/,"").trim();
-  if(ct.portal){
-    const res=recordInsurerSent(c,insurer);
-    closeModal(); renderDetail(id);
-    alert(insurer+" pre-assessments are submitted via the "+insurer+" portal, not by email.\n\n"+
-      (res==="exists" ? insurer+" is already listed in Insurer Outcomes." : insurer+" has been recorded in Insurer Outcomes with today's sent date."));
-    return;
-  }
-  const subject=(ct.subject||"XX - Pre-Assessment").replace("XX", initials(c));
-  const preamble="Hi,\n\nPlease find our pre-screening summary below for consideration.\n\n";
-  const params=[];
-  if(ct.cc) params.push("cc="+encodeURIComponent(ct.cc));
-  params.push("subject="+encodeURIComponent(subject));
-  params.push("body="+encodeURIComponent(preamble));
-  const url="mailto:"+encodeURIComponent(ct.to||"")+"?"+params.join("&");
-  const openMail=()=>{
-    closeModal();
-    const res=recordInsurerSent(c,insurer);
-    renderDetail(id);
-    if(!ct.to) toast("No recipient set for "+insurer+" — add it in Outlook","err");
-    else announceRecorded(res, shortName);
-    window.location.href=url;
+  const picked=[].map.call(document.querySelectorAll(".sendIns:checked"), x=>x.value);
+  if(!picked.length){ toast("Select at least one insurer","err"); return; }
+
+  const emailers=picked.filter(n=>!(INSURER_CONTACTS[n]||{}).portal);
+  const portals=picked.filter(n=>(INSURER_CONTACTS[n]||{}).portal);
+
+  closeModal();
+  // record every pick against the case
+  picked.forEach(n=>recordInsurerSent(c,n));
+  renderDetail(id);
+
+  const summary=(c.cleanSummary||"").trim();
+  const openAll=()=>{
+    let truncated=0;
+    emailers.forEach((n,i)=>{
+      const {url, full, ct}=buildMailto(c,n);
+      if(!full) truncated++;
+      if(!ct.to){ toast("No recipient set for "+n,"err"); return; }
+      // stagger so the mail client isn't hit with simultaneous requests
+      setTimeout(()=>{ const a=document.createElement("a"); a.href=url; a.style.display="none";
+        document.body.appendChild(a); a.click(); a.remove(); }, i*700);
+    });
+    const msg=[];
+    if(emailers.length) msg.push(emailers.length+" email"+(emailers.length>1?"s":"")+" opening");
+    if(truncated) msg.push("summary too long for "+truncated+" — paste from clipboard");
+    if(portals.length) msg.push(portals.join(", ")+": submit via portal");
+    if(msg.length) toast(msg.join(" · "), truncated||portals.length?"err":undefined);
   };
-  const summary=c.cleanSummary||"";
   if(summary && navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(summary).then(openMail, ()=>{ toast("Couldn't copy summary; opening email anyway","err"); openMail(); });
-  } else { openMail(); }
+    navigator.clipboard.writeText(summary).then(openAll, openAll);
+  } else openAll();
 }
 
 /* ---- Health Issues ---- */

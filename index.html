@@ -248,6 +248,12 @@
   .panelgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
   .panel-tall{grid-row:span 2}
   .panel-tall.collapsed{grid-row:auto}
+  /* AI summary beside the client info cards */
+  .splitrow{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
+  .splitrow .summarycol{margin-bottom:20px}
+  .splitrow .summarycol .summarybox{max-height:none}
+  .splitrow .panelgrid{grid-template-columns:1fr 1fr;gap:10px}
+  .splitrow .panel-tall{grid-row:auto}
   .panel{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;align-self:start}
   .panel > h3{
     background:var(--bar);color:#fff;font-size:11.5px;padding:8px 12px;
@@ -442,6 +448,7 @@
   #pdfOverlay .pdfmsg{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
 
+  @media(max-width:1250px){ .splitrow{grid-template-columns:1fr} }
   @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} .panel-tall{grid-row:auto} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
@@ -558,18 +565,20 @@ const OUTCOMES = ["Standard","Loaded","Exclusion","Postponed","Declined","Not as
 const LOADING_TYPES = ["None","Medical %","Medical $ per mille","Total %","Total $ per mille"];
 const INSURERS = ["Acenda","AIA","ClearView","Encompass","Futura","MetLife","NEOS","OnePath","PPS Mutual","TAL","Zurich"];
 // "Send to Insurer" — per-insurer recipients + subject. "XX" in subject is replaced with the client's initials.
+// "group" = insurers sharing one mailbox/account: selecting several only opens ONE email,
+// but every selected brand is still recorded in Insurer Outcomes.
 const INSURER_CONTACTS = {
-  "AIA":       { to:"paul.radbourne@aia.com",              cc:"au.sapreassess@aia.com",          subject:"XX - Pre-Assessment - 2B9930526" },
-  "Acenda":    { to:"joshua.taylor@acenda.com.au",         cc:"mathew.amanovich@acenda.com.au",  subject:"XX - Pre-Assessment - SB2117918" },
-  "MetLife":   { to:"preassessments@metlife.com",          cc:"pam.hauer@metlife.com",           subject:"XX - Pre-Assessment - 4001977" },
-  "NEOS":      { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment - A1901" },
-  "Encompass": { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment - A1901" }, // covered under NEOS Group
-  "Futura":    { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment - A1901" }, // covered under NEOS Group
-  "TAL":       { to:"preassessnsw@tal.com.au",             cc:"michelle.mcinerney@tal.com.au",   subject:"XX - Pre-Assessment - 88290" },
-  "Zurich":    { to:"life.preassessments@zurich.com.au",   cc:"emma.longrigg@zurich.com.au",     subject:"XX Pre-Assessment - YD21/6CDC" },
-  "OnePath":   { to:"life.preassessments@zurich.com.au",   cc:"emma.longrigg@zurich.com.au",     subject:"XX Pre-Assessment - YD21/6CDC" }, // covered under Zurich
-  "PPS Mutual (Murray)":  { to:"adviserservices@ppsmutual.com.au", cc:"", subject:"XX - Pre-Assessment - 4556436" },
-  "PPS Mutual (Belinda)": { to:"adviserservices@ppsmutual.com.au", cc:"", subject:"XX - Pre-Assessment - 2782314" },
+  "AIA":       { to:"paul.radbourne@aia.com",              cc:"au.sapreassess@aia.com",          subject:"XX - Pre-Assessment Request - 2B9930526" },
+  "Acenda":    { to:"joshua.taylor@acenda.com.au",         cc:"mathew.amanovich@acenda.com.au",  subject:"XX - Pre-Assessment Request - SB2117918" },
+  "MetLife":   { to:"preassessments@metlife.com",          cc:"pam.hauer@metlife.com",           subject:"XX - Pre-Assessment Request - 4001977" },
+  "NEOS":      { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment Request - A1901", group:"neos" },
+  "Encompass": { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment Request - A1901", group:"neos" },
+  "Futura":    { to:"nswactpreassessment@neoslife.com.au", cc:"rkouchoo@neoslife.com.au",        subject:"XX - Pre-Assessment Request - A1901", group:"neos" },
+  "TAL":       { to:"preassessnsw@tal.com.au",             cc:"michelle.mcinerney@tal.com.au",   subject:"XX - Pre-Assessment Request - 88290" },
+  "Zurich":    { to:"life.preassessments@zurich.com.au",   cc:"emma.longrigg@zurich.com.au",     subject:"XX - Pre-Assessment Request - YD21/6CDC", group:"zurich" },
+  "OnePath":   { to:"life.preassessments@zurich.com.au",   cc:"emma.longrigg@zurich.com.au",     subject:"XX - Pre-Assessment Request - YD21/6CDC", group:"zurich" },
+  "PPS Mutual (Murray)":  { to:"adviserservices@ppsmutual.com.au", cc:"", subject:"XX - Pre-Assessment Request - 4556436" },
+  "PPS Mutual (Belinda)": { to:"adviserservices@ppsmutual.com.au", cc:"", subject:"XX - Pre-Assessment Request - 2782314" },
   "ClearView": { portal:true } // ClearView pre-assessments are submitted via the ClearView portal, not email
 };
 const COVER_OUTCOMES = ["Not assessed","Standard","Loading %","Loading $","Exclusion","Loading % and Exclusion","Loading $ and Exclusion","Declined","Further information"];
@@ -963,7 +972,8 @@ function renderDetail(id){
     </div>
 
     <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
-    ${c.cleanSummary?`<div class="section"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
+    <div class="${c.cleanSummary?"splitrow":""}">
+    ${c.cleanSummary?`<div class="section summarycol"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
 
     <div class="panelgrid">
       ${panel("Personal","👤",[
@@ -995,6 +1005,7 @@ function renderDetail(id){
         ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],
         ["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
       ])}
+    </div>
     </div>
 
     ${healthSection(c)}
@@ -1535,7 +1546,7 @@ function announceRecorded(res, nm){
 const MAILTO_MAX=1900; // browsers/Outlook truncate long mailto URLs — fall back to clipboard past this
 function buildMailto(c, insurerKey){
   const ct=INSURER_CONTACTS[insurerKey]||{};
-  const subject=(ct.subject||"XX - Pre-Assessment").replace("XX", "Case Number: "+c.id);
+  const subject=(ct.subject||"XX - Pre-Assessment Request").replace("XX", "#"+c.id);
   const preamble="Hi,\n\nCan we please get a pre-assessment on the following for all cover.\n\n";
   const summary=(c.cleanSummary||"").trim();
   const build=(body)=>{
@@ -1554,8 +1565,14 @@ function sendToInsurer(id){
   const picked=[].map.call(document.querySelectorAll(".sendIns:checked"), x=>x.value);
   if(!picked.length){ toast("Select at least one insurer","err"); return; }
 
-  const emailers=picked.filter(n=>!(INSURER_CONTACTS[n]||{}).portal);
   const portals=picked.filter(n=>(INSURER_CONTACTS[n]||{}).portal);
+  // collapse insurers that share a mailbox (group) down to one email each
+  const seenGroups=new Set(), emailers=[], grouped=[];
+  picked.filter(n=>!(INSURER_CONTACTS[n]||{}).portal).forEach(n=>{
+    const g=(INSURER_CONTACTS[n]||{}).group;
+    if(g){ if(seenGroups.has(g)){ grouped.push(n); return; } seenGroups.add(g); }
+    emailers.push(n);
+  });
 
   closeModal();
   // record every pick against the case
@@ -1575,6 +1592,7 @@ function sendToInsurer(id){
     });
     const msg=[];
     if(emailers.length) msg.push(emailers.length+" email"+(emailers.length>1?"s":"")+" opening");
+    if(grouped.length) msg.push(grouped.join(", ")+" share a mailbox — included in the same email");
     if(truncated) msg.push("summary too long for "+truncated+" — paste from clipboard");
     if(portals.length) msg.push(portals.join(", ")+": submit via portal");
     if(msg.length) toast(msg.join(" · "), truncated||portals.length?"err":undefined);

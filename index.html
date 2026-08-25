@@ -245,15 +245,17 @@
   .detailhead .sub{color:var(--muted);font-size:13px;margin-top:3px}
   .detailhead .actions{display:flex;gap:8px;flex-wrap:wrap}
 
-  /* two independent columns so short cards don't leave gaps beside tall ones */
-  .panelgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;align-items:start}
-  .panelcol{display:flex;flex-direction:column;gap:12px;min-width:0}
-  /* AI summary beside the client info cards */
-  .splitrow{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
-  .splitrow .summarycol{margin-bottom:20px}
-  .splitrow .summarycol .summarybox{max-height:none}
-  .splitrow .panelgrid{gap:10px}
-  .splitrow .panelcol{gap:10px}
+  /* cards flow in balanced columns — no grid rows, so short cards never leave gaps */
+  .cardwrap{column-count:3;column-gap:12px;margin-bottom:20px}
+  .cardwrap .panel{break-inside:avoid;-webkit-column-break-inside:avoid;margin:0 0 12px;width:100%;display:inline-block}
+  /* AI summary beside the cards: summary takes ~38%, cards flow 2-up in the rest */
+  .splitrow{display:grid;grid-template-columns:minmax(0,0.62fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:20px}
+  .splitrow .summarycol{margin-bottom:0;position:sticky;top:84px}
+  .splitrow .summarycol .summarybox{max-height:calc(100vh - 220px)}
+  .splitrow .cardwrap{column-count:2;column-gap:10px;margin-bottom:0}
+  .splitrow .cardwrap .panel{margin-bottom:10px}
+  .pfoot{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--muted);font-style:italic}
+  .kv dt.nofields{grid-column:1/-1;color:var(--muted);font-style:italic}
   .panel{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;align-self:start}
   .panel > h3{
     background:var(--bar);color:#fff;font-size:11.5px;padding:8px 12px;
@@ -264,8 +266,8 @@
   .panel.collapsed > h3 .chev{transform:rotate(-90deg)}
   .panel.collapsed .pbody{display:none}
   .panel .pbody{padding:10px 12px}
-  .kv{display:grid;grid-template-columns:44% 56%;gap:4px 8px;font-size:12px}
-  .kv dt{color:var(--muted)}
+  .kv{display:grid;grid-template-columns:minmax(96px,38%) 1fr;gap:5px 10px;font-size:12px}
+  .kv dt{color:var(--muted);line-height:1.35}
   .kv dd{margin:0;color:var(--ink);font-weight:500;word-break:break-word}
   .summarybox{font-size:13px;line-height:1.6;color:var(--ink);max-height:440px;overflow:auto}
   .summarybox strong{color:var(--navy)}
@@ -448,11 +450,12 @@
   #pdfOverlay .pdfmsg{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
 
-  @media(max-width:1250px){ .splitrow{grid-template-columns:1fr} }
-  @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} }
+  @media(max-width:1250px){ .splitrow{grid-template-columns:1fr} .splitrow .summarycol{position:static;margin-bottom:16px} .splitrow .summarycol .summarybox{max-height:440px} .splitrow .cardwrap{column-count:3} }
+  @media(max-width:1100px){ .cardwrap,.splitrow .cardwrap{column-count:2} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
-    .panelgrid,.insurergrid,.formgrid,.dashrow{grid-template-columns:1fr}
+    .insurergrid,.formgrid,.dashrow{grid-template-columns:1fr}
+    .cardwrap,.splitrow .cardwrap{column-count:1}
   }
 </style>
 </head>
@@ -973,13 +976,27 @@ function renderDetail(id){
 
     <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
     <div class="${c.cleanSummary?"splitrow":""}">
-    ${c.cleanSummary?`<div class="section summarycol"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
-
-    <div class="panelgrid">
-      <div class="panelcol">
+      ${c.cleanSummary?`<div class="section summarycol"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
+      <div class="cardwrap">
       ${panel("Personal","👤",[
         ["Full name",c.fullName],["Date of birth",c.dob?`${c.dob} (${age(c.dob)} yrs)`:""],
-        ["Gender",c.gender],["Smoker (last 12m)",c.smokerLast12m]
+        ["Gender",c.gender],["Smoker (12m)",c.smokerLast12m]
+      ])}
+      ${panel("Residency / Travel","🌏",[
+        ["Living in Aus.",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],
+        ["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],
+        ["Travel abroad",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
+      ])}
+      ${panel("Lifestyle","🏄",[
+        ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],
+        ["Alcohol / week",c.alcoholPerWeek],["Reduce alcohol advised",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],
+        ["Rec. drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]
+      ])}
+      ${panel("General Health screening","🩺",[
+        ["Height / weight",hwLine(c)],
+        ["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],
+        ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],
+        ["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
       ])}
       ${panel("Occupational / Financial","💼",[
         ["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],
@@ -991,25 +1008,6 @@ function renderDetail(id){
         ["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
       ])}
       </div>
-      <div class="panelcol">
-      ${panel("Residency / Travel","🌏",[
-        ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],
-        ["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],
-        ["Travel/live abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
-      ])}
-      ${panel("Lifestyle","🏄",[
-        ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],
-        ["Alcohol / week",c.alcoholPerWeek],["Advised to reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],
-        ["Recreational drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail]
-      ])}
-      ${panel("General Health screening","🩺",[
-        ["Height / weight",hwLine(c)],
-        ["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],
-        ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],
-        ["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
-      ])}
-      </div>
-    </div>
     </div>
 
     ${healthSection(c)}
@@ -1479,9 +1477,15 @@ function updateBmi(){
 }
 
 function panel(title,icon,rows){
-  const body = rows.map(([k,val])=>`<dt>${esc(k)}</dt><dd>${(val===0||val)?esc(val):'<span class="muted">—</span>'}</dd>`).join("");
+  // only show fields that actually have a value — blanks are still editable via "Edit details"
+  const filled = rows.filter(([k,v])=>{ const s=cleanVal(v); return s!==""; });
+  const hidden = rows.length-filled.length;
+  const body = filled.length
+    ? filled.map(([k,v])=>`<dt>${esc(k)}</dt><dd>${esc(cleanVal(v))}</dd>`).join("")
+    : `<dt class="nofields" colspan="2">Nothing disclosed</dt><dd></dd>`;
+  const foot = hidden ? `<div class="pfoot">${hidden} blank field${hidden!==1?"s":""} hidden</div>` : "";
   const collapsed = collapsedPanels.has(title)?" collapsed":"";
-  return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
+  return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl>${foot}</div></div>`;
 }
 function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
 // grow a textarea to fit its content

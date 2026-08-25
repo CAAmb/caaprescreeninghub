@@ -245,15 +245,15 @@
   .detailhead .sub{color:var(--muted);font-size:13px;margin-top:3px}
   .detailhead .actions{display:flex;gap:8px;flex-wrap:wrap}
 
-  .panelgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
-  .panel-tall{grid-row:span 2}
-  .panel-tall.collapsed{grid-row:auto}
+  /* two independent columns so short cards don't leave gaps beside tall ones */
+  .panelgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;align-items:start}
+  .panelcol{display:flex;flex-direction:column;gap:12px;min-width:0}
   /* AI summary beside the client info cards */
   .splitrow{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px;align-items:start}
   .splitrow .summarycol{margin-bottom:20px}
   .splitrow .summarycol .summarybox{max-height:none}
-  .splitrow .panelgrid{grid-template-columns:1fr 1fr;gap:10px}
-  .splitrow .panel-tall{grid-row:auto}
+  .splitrow .panelgrid{gap:10px}
+  .splitrow .panelcol{gap:10px}
   .panel{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;align-self:start}
   .panel > h3{
     background:var(--bar);color:#fff;font-size:11.5px;padding:8px 12px;
@@ -449,7 +449,7 @@
   .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
 
   @media(max-width:1250px){ .splitrow{grid-template-columns:1fr} }
-  @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} .panel-tall{grid-row:auto} }
+  @media(max-width:1100px){ .panelgrid{grid-template-columns:1fr 1fr} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
     .panelgrid,.insurergrid,.formgrid,.dashrow{grid-template-columns:1fr}
@@ -976,14 +976,10 @@ function renderDetail(id){
     ${c.cleanSummary?`<div class="section summarycol"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
 
     <div class="panelgrid">
+      <div class="panelcol">
       ${panel("Personal","👤",[
         ["Full name",c.fullName],["Date of birth",c.dob?`${c.dob} (${age(c.dob)} yrs)`:""],
         ["Gender",c.gender],["Smoker (last 12m)",c.smokerLast12m]
-      ])}
-      ${panel("Residency / Travel","🌏",[
-        ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],
-        ["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],
-        ["Travel/live abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
       ])}
       ${panel("Occupational / Financial","💼",[
         ["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],
@@ -993,6 +989,13 @@ function renderDetail(id){
         ["Second job",c.secondJob],["Second job detail",c.secondJobDetail],
         ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],
         ["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
+      ])}
+      </div>
+      <div class="panelcol">
+      ${panel("Residency / Travel","🌏",[
+        ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Current visa",c.currentVisaDetail],
+        ["Applied for PR",c.appliedForPR],["Overseas location",c.overseasLocationDetail],
+        ["Travel/live abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]
       ])}
       ${panel("Lifestyle","🏄",[
         ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail],
@@ -1005,6 +1008,7 @@ function renderDetail(id){
         ["High blood pressure",c.highBloodPressure],["BP detail",c.bpDetail],
         ["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail]
       ])}
+      </div>
     </div>
     </div>
 
@@ -1477,8 +1481,7 @@ function updateBmi(){
 function panel(title,icon,rows){
   const body = rows.map(([k,val])=>`<dt>${esc(k)}</dt><dd>${(val===0||val)?esc(val):'<span class="muted">—</span>'}</dd>`).join("");
   const collapsed = collapsedPanels.has(title)?" collapsed":"";
-  const tall = title==="Occupational / Financial"?" panel-tall":""; // spans 2 grid rows to fill the empty column below it
-  return `<div class="panel${collapsed}${tall}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
+  return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl></div></div>`;
 }
 function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
 // grow a textarea to fit its content

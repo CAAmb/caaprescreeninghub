@@ -271,6 +271,15 @@
   .kv dd{margin:0;color:var(--ink);font-weight:500;word-break:break-word}
   .summarybox{font-size:13px;line-height:1.6;color:var(--ink);max-height:440px;overflow:auto}
   .summarybox strong{color:var(--navy)}
+  .sendqueue{border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .qrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;background:var(--surface)}
+  .qrow:last-child{border-bottom:none}
+  .qrow.done{opacity:.6}
+  .qrow.next{background:var(--sky)}
+  .qrow .qtick{width:14px;color:var(--good);font-weight:700}
+  .qrow.next .qtick{color:var(--navy)}
+  .qrow .qname{flex:1;font-weight:600;color:var(--navy)}
+  .qrow .qstate{font-size:11.5px;color:var(--muted);font-style:italic}
   .pickhead{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px;color:var(--muted)}
   .pickhead span{flex:1;font-weight:600}
   .inspicker{border:1px solid var(--line);border-radius:9px;overflow:hidden;max-height:46vh;overflow-y:auto}
@@ -1581,32 +1590,73 @@ function sendToInsurer(id){
     emailers.push(n);
   });
 
-  closeModal();
   // record every pick against the case
   picked.forEach(n=>recordInsurerSent(c,n));
-  renderDetail(id);
 
   const summary=(c.cleanSummary||"").trim();
-  const openAll=()=>{
-    let truncated=0;
-    emailers.forEach((n,i)=>{
-      const {url, full, ct}=buildMailto(c,n);
-      if(!full) truncated++;
-      if(!ct.to){ toast("No recipient set for "+n,"err"); return; }
-      // stagger so the mail client isn't hit with simultaneous requests
-      setTimeout(()=>{ const a=document.createElement("a"); a.href=url; a.style.display="none";
-        document.body.appendChild(a); a.click(); a.remove(); }, i*700);
-    });
-    const msg=[];
-    if(emailers.length) msg.push(emailers.length+" email"+(emailers.length>1?"s":"")+" opening");
-    if(grouped.length) msg.push(grouped.join(", ")+" share a mailbox — included in the same email");
-    if(truncated) msg.push("summary too long for "+truncated+" — paste from clipboard");
-    if(portals.length) msg.push(portals.join(", ")+": submit via portal");
-    if(msg.length) toast(msg.join(" · "), truncated||portals.length?"err":undefined);
-  };
-  if(summary && navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(summary).then(openAll, openAll);
-  } else openAll();
+  if(summary && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(summary).catch(()=>{});
+
+  const valid=emailers.filter(n=>(INSURER_CONTACTS[n]||{}).to);
+  const noAddr=emailers.filter(n=>!(INSURER_CONTACTS[n]||{}).to);
+
+  if(!valid.length){
+    closeModal(); renderDetail(id);
+    toast([portals.length?portals.join(", ")+": submit via portal":"", noAddr.length?"No recipient set for "+noAddr.join(", "):""].filter(Boolean).join(" · ")||"Nothing to email","err");
+    return;
+  }
+  // Browsers block repeated mailto: launches that aren't tied to a click, so open them
+  // one per click via a queue instead of firing them all at once.
+  if(valid.length===1){
+    const {url}=buildMailto(c,valid[0]);
+    closeModal(); renderDetail(id);
+    window.location.href=url;
+    toast("Email opening for "+valid[0]);
+    return;
+  }
+  SEND_QUEUE={caseId:id, list:valid, idx:0, grouped, portals, noAddr};
+  renderSendQueue();
+}
+let SEND_QUEUE=null;
+function renderSendQueue(){
+  const q=SEND_QUEUE; if(!q) return;
+  const c=getCase(q.caseId);
+  const done=q.idx>=q.list.length;
+  const rows=q.list.map((n,i)=>{
+    const state=i<q.idx?"done":(i===q.idx?"next":"todo");
+    return `<div class="qrow ${state}">
+      <span class="qtick">${i<q.idx?"✓":(i===q.idx?"→":"")}</span>
+      <span class="qname">${esc(n)}</span>
+      <span class="qstate">${i<q.idx?"opened":(i===q.idx?"next":"waiting")}</span>
+    </div>`;
+  }).join("");
+  const notes=[];
+  if(q.grouped.length) notes.push(q.grouped.join(", ")+" share a mailbox and are included in the same email.");
+  if(q.portals.length) notes.push(q.portals.join(", ")+" must be submitted via their portal.");
+  if(q.noAddr.length) notes.push("No recipient set for "+q.noAddr.join(", ")+".");
+  const body=`<p class="muted" style="font-size:12.5px;margin:0 0 10px">
+      ${done?"All emails opened. Each insurer has been recorded with today's sent date."
+            :"Your browser only allows one email to open per click. Click the button below for each insurer."}</p>
+    <div class="sendqueue">${rows}</div>
+    ${notes.length?`<p class="muted" style="font-size:12px;line-height:1.5;margin-top:10px">${notes.map(esc).join("<br>")}</p>`:""}`;
+  const foot = done
+    ? `<button class="btn" onclick="finishSendQueue()">Done</button>`
+    : `<button class="btn ghost" onclick="finishSendQueue()">Stop</button>
+       <button class="btn peach" onclick="openNextInQueue()">Open email for ${esc(q.list[q.idx])} (${q.idx+1} of ${q.list.length})</button>`;
+  openModal("Send to Insurer — "+esc(c?c.fullName:""), body, foot);
+}
+function openNextInQueue(){
+  const q=SEND_QUEUE; if(!q) return;
+  const c=getCase(q.caseId); if(!c) return;
+  const name=q.list[q.idx];
+  const {url}=buildMailto(c,name);
+  window.location.href=url;          // fired directly from the click — not blocked
+  q.idx++;
+  renderSendQueue();
+}
+function finishSendQueue(){
+  const q=SEND_QUEUE; SEND_QUEUE=null;
+  closeModal();
+  if(q) renderDetail(q.caseId);
 }
 
 /* ---- Health Issues ---- */

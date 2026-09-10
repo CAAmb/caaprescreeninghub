@@ -1595,12 +1595,14 @@ function announceRecorded(res, nm){
   else if(res==="exists") toast(nm+" is already in Insurer Outcomes — not changed");
 }
 // Health issues formatted for the insurer email — key facts + the assessor's notes.
-function healthEmailBlock(c){
-  if(!c.healthIssues || !c.healthIssues.length) return "";
-  const lines=["HEALTH CONDITIONS"];
+// Returns the detail rows only (no heading), so they can be slotted under the
+// summary's own HEALTH CONDITIONS heading instead of creating a second one.
+function healthEmailRows(c){
+  if(!c.healthIssues || !c.healthIssues.length) return [];
+  const lines=[];
   c.healthIssues.forEach((h,i)=>{
     const cat=cleanVal(h.category), dx=cleanVal(h.diagnosis), area=cleanVal(h.bodyArea);
-    lines.push("");
+    if(i) lines.push("");
     lines.push(`${i+1}. ${[cat,dx].filter(Boolean).join(" - ")||"(not specified)"}${area?` (${area})`:""}`);
     const facts=[];
     const d1=cleanVal(h.dateFirstSymptoms), d2=cleanVal(h.dateLastSymptoms);
@@ -1614,16 +1616,37 @@ function healthEmailBlock(c){
     if(facts.length) lines.push("   "+facts.join(" | "));
     if(cleanVal(h.assessorNotes)) lines.push("   Notes: "+cleanVal(h.assessorNotes));
   });
-  return lines.join("\n");
+  return lines;
 }
-// Full email body: preamble + AI summary + health conditions.
+function isSummaryHeading(t){ return t.length>0 && t.length<=42 && t===t.toUpperCase() && /[A-Z]/.test(t); }
+// Merge the platform's health detail INTO the AI summary's own health section so the
+// email has a single HEALTH CONDITIONS block, still in the summary's running order.
+function mergedSummary(c){
+  const summary=(c.cleanSummary||"").trim();
+  const rows=healthEmailRows(c);
+  if(!rows.length) return summary;
+  if(!summary) return ["HEALTH CONDITIONS"].concat(rows).join("\n");
+  const lines=summary.split("\n");
+  let hIdx=-1;
+  for(let i=0;i<lines.length;i++){
+    const t=lines[i].trim();
+    if(isSummaryHeading(t) && /^(HEALTH|MEDICAL)\b/.test(t)){ hIdx=i; break; }
+  }
+  // no health heading in the summary — append one
+  if(hIdx===-1) return summary+"\n\nHEALTH CONDITIONS\n"+rows.join("\n");
+  // replace that section's body with the detailed rows, keeping later sections intact
+  let end=lines.length;
+  for(let j=hIdx+1;j<lines.length;j++){ if(isSummaryHeading(lines[j].trim())){ end=j; break; } }
+  const merged=lines.slice(0,hIdx+1).concat(rows);
+  if(end<lines.length) merged.push("", ...lines.slice(end));
+  return merged.join("\n").replace(/\n{3,}/g,"\n\n");
+}
+// Full email body: preamble + summary (with health detail merged in).
 const EMAIL_PREAMBLE="Hi,\n\nCan we please get a pre-assessment on the following for all cover.";
 function emailBodyFor(c){
   const parts=[EMAIL_PREAMBLE];
-  const summary=(c.cleanSummary||"").trim();
-  if(summary) parts.push(summary);
-  const health=healthEmailBlock(c);
-  if(health) parts.push(health);
+  const body=mergedSummary(c);
+  if(body) parts.push(body);
   return parts.join("\n\n");
 }
 const MAILTO_MAX=1900; // browsers/Outlook truncate long mailto URLs — fall back to clipboard past this

@@ -245,15 +245,20 @@
   .detailhead .sub{color:var(--muted);font-size:13px;margin-top:3px}
   .detailhead .actions{display:flex;gap:8px;flex-wrap:wrap}
 
-  /* cards flow in balanced columns — no grid rows, so short cards never leave gaps */
-  .cardwrap{column-count:3;column-gap:12px;margin-bottom:20px}
-  .cardwrap .panel{break-inside:avoid;-webkit-column-break-inside:avoid;margin:0 0 12px;width:100%;display:inline-block}
-  /* AI summary beside the cards: summary takes ~38%, cards flow 2-up in the rest */
-  .splitrow{display:grid;grid-template-columns:minmax(0,0.62fr) minmax(0,1fr);gap:16px;align-items:start;margin-bottom:20px}
+  /* client cards: stacked (they start collapsed, so this stays compact) */
+  .cardcol{margin-bottom:20px;min-width:0}
+  .cardhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .cardhead span{flex:1;font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .cardwrap{display:flex;flex-direction:column;gap:8px}
+  .cardwrap .panel{width:100%}
+  /* AI Summary | client panels | Notepad */
+  .splitrow{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr) minmax(0,0.9fr);gap:16px;align-items:start;margin-bottom:20px}
+  .splitrow.nosummary{grid-template-columns:minmax(0,1fr) minmax(0,0.9fr)}
   .splitrow .summarycol{margin-bottom:0;position:sticky;top:84px}
   .splitrow .summarycol .summarybox{max-height:calc(100vh - 220px)}
-  .splitrow .cardwrap{column-count:2;column-gap:10px;margin-bottom:0}
-  .splitrow .cardwrap .panel{margin-bottom:10px}
+  .splitrow .cardcol{margin-bottom:0}
+  .splitrow .scratchcol{margin-bottom:0;position:sticky;top:84px}
+  .splitrow .scratchcol .scratchbox{min-height:300px}
   .pfoot{margin-top:8px;padding-top:6px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--muted);font-style:italic}
   .kv dt.nofields{grid-column:1/-1;color:var(--muted);font-style:italic}
   .panel{background:var(--surface);border-radius:10px;box-shadow:var(--shadow);overflow:hidden;align-self:start}
@@ -271,6 +276,17 @@
   .kv dd{margin:0;color:var(--ink);font-weight:500;word-break:break-word}
   .summarybox{font-size:13px;line-height:1.6;color:var(--ink);max-height:440px;overflow:auto}
   .summarybox strong{color:var(--navy)}
+  /* inline assessor notes in the health issues table */
+  td.hnotes{min-width:240px}
+  textarea.hnotebox{width:100%;min-height:44px;border:1px solid var(--line);border-radius:6px;padding:5px 7px;
+    font-family:inherit;font-size:11.5px;line-height:1.45;background:var(--surface);color:var(--ink);resize:vertical;overflow:hidden}
+  textarea.hnotebox:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(15,36,51,.1)}
+  /* notepad */
+  .scratchwarn{background:#fff4e7;border:1px solid #f0d4ad;color:#8a5a1e;border-radius:8px;padding:8px 12px;font-size:12px;line-height:1.5;margin-bottom:10px}
+  body.dark .scratchwarn{background:#3a2c17;border-color:#5a4423;color:#e8b874}
+  .scratchbox{width:100%;min-height:130px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font-family:inherit;font-size:13px;line-height:1.55;background:var(--surface);color:var(--ink);resize:vertical}
+  .scratchbox:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
   .sendqueue{border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .qrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;background:var(--surface)}
   .qrow:last-child{border-bottom:none}
@@ -459,12 +475,11 @@
   #pdfOverlay .pdfmsg{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:8px 18px;border-radius:22px;font-weight:600;font-size:13px;z-index:9999;box-shadow:0 4px 14px rgba(0,0,0,.25)}
   .rep-root{margin:0 auto;width:1122px;max-width:1122px;background:#fff;padding:16px 26px;color:#1c2b36;font-size:9.5px;line-height:1.4}
 
-  @media(max-width:1250px){ .splitrow{grid-template-columns:1fr} .splitrow .summarycol{position:static;margin-bottom:16px} .splitrow .summarycol .summarybox{max-height:440px} .splitrow .cardwrap{column-count:3} }
-  @media(max-width:1100px){ .cardwrap,.splitrow .cardwrap{column-count:2} }
+  @media(max-width:1500px){ .splitrow,.splitrow.nosummary{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .splitrow .scratchcol{grid-column:1/-1;position:static} }
+  @media(max-width:1100px){ .splitrow,.splitrow.nosummary{grid-template-columns:1fr} .splitrow .summarycol{position:static;margin-bottom:0} .splitrow .summarycol .summarybox{max-height:440px} }
   @media(max-width:760px){
     .stats{grid-template-columns:1fr 1fr}
     .insurergrid,.formgrid,.dashrow{grid-template-columns:1fr}
-    .cardwrap,.splitrow .cardwrap{column-count:1}
   }
 </style>
 </head>
@@ -764,7 +779,9 @@ let currentTab = "In Progress";
 let searchTerm = "";
 let openCaseId = null;
 let editingCover = null; // {ioId, key} — inline per-cover edit on detail screen
-const collapsedPanels = new Set(); // detail-view panels the user has collapsed (persists across re-renders)
+// Client info panels start collapsed; the set tracks which are collapsed (persists across re-renders).
+const PANEL_TITLES = ["Personal","Residency / Travel","Lifestyle","General Health screening","Occupational / Financial"];
+const collapsedPanels = new Set(PANEL_TITLES);
 
 function load(){
   try{
@@ -984,8 +1001,10 @@ function renderDetail(id){
     </div>
 
     <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
-    <div class="${c.cleanSummary?"splitrow":""}">
+    <div class="splitrow${c.cleanSummary?"":" nosummary"}">
       ${c.cleanSummary?`<div class="section summarycol"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
+      <div class="cardcol">
+      <div class="cardhead no-print"><span>Client details</span><button class="btn ghost sm" id="panelToggleBtn" onclick="toggleAllPanels()">⊞ Expand all</button></div>
       <div class="cardwrap">
       ${panel("Personal","👤",[
         ["Full name",c.fullName],["Date of birth",c.dob?`${c.dob} (${age(c.dob)} yrs)`:""],
@@ -1017,6 +1036,8 @@ function renderDetail(id){
         ["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]
       ])}
       </div>
+      </div>
+      ${scratchSection(c)}
     </div>
 
     ${healthSection(c)}
@@ -1024,6 +1045,7 @@ function renderDetail(id){
     ${insurerSection(c)}
   `;
   autoGrowAll();
+  syncPanelToggleBtn();
 }
 
 /* ===================== PRINT REPORT (landscape) ===================== */
@@ -1496,10 +1518,22 @@ function panel(title,icon,rows){
   const collapsed = collapsedPanels.has(title)?" collapsed":"";
   return `<div class="panel${collapsed}"><h3 onclick="togglePanel(this,'${esc(title)}')"><span class="chev">▾</span>${icon} ${esc(title)}</h3><div class="pbody"><dl class="kv">${body}</dl>${foot}</div></div>`;
 }
-function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); }
+function togglePanel(h,title){ const p=h.closest(".panel"); p.classList.toggle("collapsed"); if(p.classList.contains("collapsed")) collapsedPanels.add(title); else collapsedPanels.delete(title); syncPanelToggleBtn(); }
+function toggleAllPanels(){
+  const anyOpen = PANEL_TITLES.some(t=>!collapsedPanels.has(t));
+  if(anyOpen) PANEL_TITLES.forEach(t=>collapsedPanels.add(t));
+  else collapsedPanels.clear();
+  document.querySelectorAll(".cardwrap .panel").forEach(p=>p.classList.toggle("collapsed", anyOpen));
+  syncPanelToggleBtn();
+}
+function syncPanelToggleBtn(){
+  const b=document.getElementById("panelToggleBtn"); if(!b)return;
+  const anyOpen = PANEL_TITLES.some(t=>!collapsedPanels.has(t));
+  b.textContent = anyOpen ? "⊟ Collapse all" : "⊞ Expand all";
+}
 // grow a textarea to fit its content
 function autoGrow(el){ if(!el)return; el.style.height="auto"; el.style.height=Math.max(44, el.scrollHeight+2)+"px"; }
-function autoGrowAll(){ document.querySelectorAll(".insurertbl textarea.notes").forEach(autoGrow); }
+function autoGrowAll(){ document.querySelectorAll(".insurertbl textarea.notes, textarea.hnotebox").forEach(autoGrow); }
 // Render the AI summary preserving line breaks (so it survives copy-paste into email) + bold section headings.
 function summaryHtml(text){
   return (text||"").split("\n").map(line=>{
@@ -1532,8 +1566,9 @@ function openSendToInsurer(id){
     </div>
     <div class="inspicker">${rows}</div>
     <p class="muted" style="font-size:12.5px;line-height:1.5;margin-top:12px">
-      One pre-addressed Outlook email opens per insurer (To, Cc &amp; subject filled), each with the summary in the body.
-      The summary is also copied to your clipboard as a backup. Each insurer is added to Insurer Outcomes with today's sent date.</p>`;
+      One pre-addressed Outlook email opens per insurer (To, Cc &amp; subject filled), with the AI summary and the health conditions
+      (including your assessor notes) in the body. The same text is copied to your clipboard as a backup.
+      Each insurer is added to Insurer Outcomes with today's sent date.</p>`;
   openModal("Send to Insurer — "+esc(c.fullName||""), body,
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
      <button class="btn peach" onclick="sendToInsurer('${id}')">Open emails</button>`);
@@ -1559,12 +1594,42 @@ function announceRecorded(res, nm){
   else if(res==="dated") toast(nm+" already listed — sent date set to "+todayStr());
   else if(res==="exists") toast(nm+" is already in Insurer Outcomes — not changed");
 }
+// Health issues formatted for the insurer email — key facts + the assessor's notes.
+function healthEmailBlock(c){
+  if(!c.healthIssues || !c.healthIssues.length) return "";
+  const lines=["HEALTH CONDITIONS"];
+  c.healthIssues.forEach((h,i)=>{
+    const cat=cleanVal(h.category), dx=cleanVal(h.diagnosis), area=cleanVal(h.bodyArea);
+    lines.push("");
+    lines.push(`${i+1}. ${[cat,dx].filter(Boolean).join(" - ")||"(not specified)"}${area?` (${area})`:""}`);
+    const facts=[];
+    const d1=cleanVal(h.dateFirstSymptoms), d2=cleanVal(h.dateLastSymptoms);
+    if(d1||d2) facts.push("Symptoms: "+(d1||"—")+" to "+(d2||"ongoing"));
+    if(cleanVal(h.treatmentStatus)) facts.push("Treatment: "+cleanVal(h.treatmentStatus));
+    if(cleanVal(h.severity)) facts.push("Severity: "+cleanVal(h.severity));
+    if(h.surgery==="Yes") facts.push("Surgery: Yes"+(cleanVal(h.surgeryDate)?" ("+cleanVal(h.surgeryDate)+")":""));
+    if(cleanVal(h.fullyRecovered)) facts.push("Recovered: "+cleanVal(h.fullyRecovered));
+    if(cleanVal(h.occupationRelated)) facts.push("Occupation related: "+cleanVal(h.occupationRelated));
+    if(cleanVal(h.timeOffWork)) facts.push("Time off work: "+cleanVal(h.timeOffWork));
+    if(facts.length) lines.push("   "+facts.join(" | "));
+    if(cleanVal(h.assessorNotes)) lines.push("   Notes: "+cleanVal(h.assessorNotes));
+  });
+  return lines.join("\n");
+}
+// Full email body: preamble + AI summary + health conditions.
+const EMAIL_PREAMBLE="Hi,\n\nCan we please get a pre-assessment on the following for all cover.";
+function emailBodyFor(c){
+  const parts=[EMAIL_PREAMBLE];
+  const summary=(c.cleanSummary||"").trim();
+  if(summary) parts.push(summary);
+  const health=healthEmailBlock(c);
+  if(health) parts.push(health);
+  return parts.join("\n\n");
+}
 const MAILTO_MAX=1900; // browsers/Outlook truncate long mailto URLs — fall back to clipboard past this
 function buildMailto(c, insurerKey){
   const ct=INSURER_CONTACTS[insurerKey]||{};
   const subject=(ct.subject||"XX - Pre-Assessment Request").replace("XX", "#"+c.id);
-  const preamble="Hi,\n\nCan we please get a pre-assessment on the following for all cover.\n\n";
-  const summary=(c.cleanSummary||"").trim();
   const build=(body)=>{
     const p=[];
     if(ct.cc) p.push("cc="+encodeURIComponent(ct.cc));
@@ -1572,8 +1637,8 @@ function buildMailto(c, insurerKey){
     p.push("body="+encodeURIComponent(body));
     return "mailto:"+encodeURIComponent(ct.to||"")+"?"+p.join("&");
   };
-  let url=build(preamble+summary), full=true;
-  if(url.length>MAILTO_MAX){ url=build(preamble); full=false; }  // too long — leave body for paste
+  let url=build(emailBodyFor(c)), full=true;
+  if(url.length>MAILTO_MAX){ url=build(EMAIL_PREAMBLE); full=false; }  // too long — body is on the clipboard
   return {url, full, ct};
 }
 function sendToInsurer(id){
@@ -1593,8 +1658,9 @@ function sendToInsurer(id){
   // record every pick against the case
   picked.forEach(n=>recordInsurerSent(c,n));
 
-  const summary=(c.cleanSummary||"").trim();
-  if(summary && navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(summary).catch(()=>{});
+  // clipboard carries the full body (summary + health conditions) as the paste fallback
+  const bodyText=emailBodyFor(c);
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(bodyText).catch(()=>{});
 
   const valid=emailers.filter(n=>(INSURER_CONTACTS[n]||{}).to);
   const noAddr=emailers.filter(n=>!(INSURER_CONTACTS[n]||{}).to);
@@ -1670,7 +1736,8 @@ function healthSection(c){
       <td>${val(h.severity)}</td>
       <td>${h.surgery==="Yes"?("Yes "+(h.surgeryDate?`(${esc(h.surgeryDate)})`:"")):"No"}</td>
       <td>${val(h.fullyRecovered)}</td>
-      <td class="muted">${val(h.assessorNotes)}</td>
+      <td class="hnotes"><textarea class="hnotebox" placeholder="Assessor notes…" oninput="autoGrow(this)"
+        onchange="setHealthField('${c.id}','${h.id}','assessorNotes',this.value)">${esc(h.assessorNotes||"")}</textarea></td>
       <td class="no-print"><div class="rowact">
         <button class="icnbtn" onclick="openHealthModal('${c.id}','${h.id}')">Edit</button>
         <button class="icnbtn" onclick="delHealth('${c.id}','${h.id}')">Del</button>
@@ -1686,6 +1753,17 @@ function healthSection(c){
       </table>
     </div></div>`;
 }
+
+/* ---- Scratch notepad (platform only — never appears on any report) ---- */
+function scratchSection(c){
+  return `<div class="section no-print scratchcol">
+    <div class="shead"><h2>📝 Notepad</h2></div>
+    <div class="sbody">
+      <div class="scratchwarn">⚠ These notes are <b>not</b> included in the PDF report or any insurer email. Anything the insurer or the report needs must go in <b>Assessor Notes &amp; Recommendation</b> or the health issue notes.</div>
+      <textarea class="scratchbox" placeholder="Odd notes, reminders, things to chase up…" onchange="setScratchNotes('${c.id}',this.value)">${esc(c.scratchNotes||"")}</textarea>
+    </div></div>`;
+}
+function setScratchNotes(id,val){ const c=getCase(id); if(!c)return; c.scratchNotes=val; persist(saveSubmissionRemote(c)); }
 
 /* ---- Insurer Outcomes ---- */
 function coverCell(caseId,ioId,key,cv){
@@ -1986,6 +2064,7 @@ function openRawForm(caseId){
 function addBlankInsurer(caseId){ const c=getCase(caseId); const io=newInsurerCard(""); c.insurerOutcomes.push(io); renderDetail(caseId); persist(saveInsurerRemote(c,io)); }
 async function delInsurer(caseId,iid){ if(!confirm("Delete this insurer?"))return; const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===iid); c.insurerOutcomes=c.insurerOutcomes.filter(x=>x.id!==iid); renderDetail(caseId); if(io&&io.spId) await persist(gDelete("insurerOutcomes",io.spId)); }
 // text/date/select value change — persist without re-render (keeps focus)
+function setHealthField(caseId,hid,field,val){ const c=getCase(caseId); const h=c.healthIssues.find(x=>x.id===hid); if(!h)return; h[field]=val; persist(saveHealthRemote(c,h)); }
 function setInsurerField(caseId,ioId,field,val){ const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io[field]=val; persist(saveInsurerRemote(c,io)); }
 function setCoverField(caseId,ioId,key,field,val){ const c=getCase(caseId); const io=c.insurerOutcomes.find(x=>x.id===ioId); if(!io)return; io.covers[key]=io.covers[key]||blankCover(); io.covers[key][field]=val; persist(saveInsurerRemote(c,io)); }
 // outcome type change — re-render so the right conditional inputs show
@@ -2135,7 +2214,7 @@ function outStr(v){ return (v===""||v==null)?null:String(v); }
 
 const SUB_MAP = {
   status:"Status", complexity:"Complexity", preScreeningDate:"PreScreeningDate", assessmentCompletedDate:"AssessmentCompletedDate",
-  rawForm:"RawForm", cleanSummary:"CleanSummary", assessorNotes:"AssessorNotes", fullName:"FullName", dob:"DOB", gender:"Gender", smokerLast12m:"SmokerLast12m",
+  rawForm:"RawForm", cleanSummary:"CleanSummary", assessorNotes:"AssessorNotes", scratchNotes:"ScratchNotes", fullName:"FullName", dob:"DOB", gender:"Gender", smokerLast12m:"SmokerLast12m",
   livingInAustralia:"LivinginAustralia", overseasLocationDetail:"OverseasLocationDetail", citizenOrPR:"CitizenOrPR",
   currentVisaDetail:"CurrentVisaDetail", appliedForPR:"AppliedForPR", plansToTravel2yrs:"PlansToTravelOrLive2yrs", travelPlansDetail:"TravelPlansDetail",
   hazardousPastimes:"HazardousPastimes", hazardousActivityDetail:"HazardousActivityDetail", alcoholPerWeek:"AlcoholPerWeek",

@@ -1601,19 +1601,20 @@ function healthEmailRows(c){
   if(!c.healthIssues || !c.healthIssues.length) return [];
   const lines=[];
   c.healthIssues.forEach((h,i)=>{
-    const cat=cleanVal(h.category), dx=cleanVal(h.diagnosis), area=cleanVal(h.bodyArea);
+    const dx=cleanVal(h.diagnosis), area=cleanVal(h.bodyArea);
     if(i) lines.push("");
-    lines.push(`${i+1}. ${[cat,dx].filter(Boolean).join(" - ")||"(not specified)"}${area?` (${area})`:""}`);
-    const facts=[];
+    lines.push(`${i+1}. ${dx||"(not specified)"}${area?` (${area})`:""}`);
     const d1=cleanVal(h.dateFirstSymptoms), d2=cleanVal(h.dateLastSymptoms);
-    if(d1||d2) facts.push("Symptoms: "+(d1||"—")+" to "+(d2||"ongoing"));
-    if(cleanVal(h.treatmentStatus)) facts.push("Treatment: "+cleanVal(h.treatmentStatus));
-    if(cleanVal(h.severity)) facts.push("Severity: "+cleanVal(h.severity));
-    if(h.surgery==="Yes") facts.push("Surgery: Yes"+(cleanVal(h.surgeryDate)?" ("+cleanVal(h.surgeryDate)+")":""));
-    if(cleanVal(h.fullyRecovered)) facts.push("Recovered: "+cleanVal(h.fullyRecovered));
-    if(cleanVal(h.occupationRelated)) facts.push("Occupation related: "+cleanVal(h.occupationRelated));
+    const dates = d1 ? (d1+" to "+(d2||"ongoing")) : (d2||"");
+    const surgery = h.surgery==="Yes" ? ("Yes"+(cleanVal(h.surgeryDate)?" ("+cleanVal(h.surgeryDate)+")":"")) : (cleanVal(h.surgery)||"No");
+    const facts=[
+      "Treatment: "+cleanVal(h.treatmentStatus),
+      "Surgery: "+surgery,
+      "Recovered: "+cleanVal(h.fullyRecovered),
+      "Symptom Dates: "+dates
+    ];
     if(cleanVal(h.timeOffWork)) facts.push("Time off work: "+cleanVal(h.timeOffWork));
-    if(facts.length) lines.push("   "+facts.join(" | "));
+    lines.push("   "+facts.join(" | "));
     if(cleanVal(h.assessorNotes)) lines.push("   Notes: "+cleanVal(h.assessorNotes));
   });
   return lines;

@@ -287,6 +287,17 @@
   .scratchbox{width:100%;min-height:130px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
     font-family:inherit;font-size:13px;line-height:1.55;background:var(--surface);color:var(--ink);resize:vertical}
   .scratchbox:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
+  .scratchbox{overflow:auto}
+  .scratchbox:empty:before{content:attr(data-ph);color:var(--muted);opacity:.75}
+  .scratchbox b,.scratchbox strong{color:inherit}
+  .scratchbar{display:flex;align-items:center;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+  .scratchbar button{width:28px;height:28px;border:1px solid var(--line);background:var(--surface);color:var(--navy);
+    border-radius:6px;cursor:pointer;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+  .scratchbar button:hover{background:var(--sky);border-color:var(--navy)}
+  .scratchbar button:active{transform:translateY(1px)}
+  .scratchbar select{height:28px;border:1px solid var(--line);background:var(--surface);color:var(--navy);
+    border-radius:6px;font-size:12px;font-family:inherit;padding:0 4px;cursor:pointer}
+  .scratchbar .bardiv{width:1px;height:18px;background:var(--line);margin:0 3px}
   .sendqueue{border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .qrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;background:var(--surface)}
   .qrow:last-child{border-bottom:none}
@@ -979,7 +990,19 @@ function matchSearch(c){
     ...c.insurerOutcomes.map(io=>io.insurerName)].join(" ").toLowerCase();
   return hay.includes(t);
 }
-function onSearch(v){ searchTerm=v; renderCases(); document.getElementById("searchInput").focus(); }
+// Re-rendering recreates the input, so restore the caret — focus() alone drops it at position 0,
+// which made each new character land at the front (text appeared to type backwards).
+function onSearch(v){
+  const old=document.getElementById("searchInput");
+  const pos=old?old.selectionStart:null;
+  searchTerm=v;
+  renderCases();
+  const el=document.getElementById("searchInput");
+  if(!el) return;
+  el.focus();
+  const at=(pos==null?el.value.length:Math.min(pos,el.value.length));
+  try{ el.setSelectionRange(at,at); }catch(e){}
+}
 function setTab(t){ currentTab=t; renderCases(); }
 function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); renderCases(); persist(saveSubmissionRemote(c)); }
 
@@ -1798,10 +1821,66 @@ function scratchSection(c){
     <div class="shead"><h2>📝 Notepad</h2></div>
     <div class="sbody">
       <div class="scratchwarn">⚠ These notes are <b>not</b> included in the PDF report or any insurer email. Anything the insurer or the report needs must go in <b>Assessor Notes &amp; Recommendation</b> or the health issue notes.</div>
-      <textarea class="scratchbox" placeholder="Odd notes, reminders, things to chase up…" onchange="setScratchNotes('${c.id}',this.value)">${esc(c.scratchNotes||"")}</textarea>
+      <div class="scratchbar no-print">
+        <button type="button" title="Bold (Ctrl+B)" onmousedown="event.preventDefault()" onclick="fmtNote('bold')"><b>B</b></button>
+        <button type="button" title="Italic (Ctrl+I)" onmousedown="event.preventDefault()" onclick="fmtNote('italic')"><i>I</i></button>
+        <button type="button" title="Underline (Ctrl+U)" onmousedown="event.preventDefault()" onclick="fmtNote('underline')"><u>U</u></button>
+        <span class="bardiv"></span>
+        <select title="Text size" onmousedown="event.stopPropagation()" onchange="fmtNoteSize(this)">
+          <option value="">Size</option><option value="2">Small</option><option value="3">Normal</option><option value="5">Large</option>
+        </select>
+        <span class="bardiv"></span>
+        <button type="button" title="Clear formatting" onmousedown="event.preventDefault()" onclick="fmtNote('removeFormat')">✕</button>
+      </div>
+      <div id="scratchBox" class="scratchbox" contenteditable="true" spellcheck="true"
+        data-ph="Odd notes, reminders, things to chase up…"
+        onblur="saveScratch(this,'${c.id}')">${scratchHtml(c.scratchNotes)}</div>
     </div></div>`;
 }
 function setScratchNotes(id,val){ const c=getCase(id); if(!c)return; c.scratchNotes=val; persist(saveSubmissionRemote(c)); }
+/* ---- Notepad rich text (notepad only — nothing else in the app stores HTML) ---- */
+// Notes are shared with the team via SharePoint, so anything pasted in is whitelisted before
+// it's ever rendered: only basic formatting tags survive, and only a font-size style.
+const NOTE_TAGS={B:1,STRONG:1,I:1,EM:1,U:1,BR:1,DIV:1,P:1,SPAN:1,FONT:1,UL:1,OL:1,LI:1};
+function sanitizeNotes(html){
+  const wrap=document.createElement("div");
+  wrap.innerHTML=String(html||"");                       // detached: scripts never execute
+  wrap.querySelectorAll("script,style,noscript,template,iframe,object,embed").forEach(el=>el.remove());
+  Array.from(wrap.querySelectorAll("*")).forEach(el=>{
+    if(!NOTE_TAGS[el.tagName]){                          // unwrap disallowed tags, keep their text
+      const p=el.parentNode; if(!p) return;
+      while(el.firstChild) p.insertBefore(el.firstChild, el);
+      p.removeChild(el); return;
+    }
+    Array.from(el.attributes).forEach(a=>{
+      const n=a.name.toLowerCase();
+      const keep=(n==="size" && el.tagName==="FONT") ||
+                 (n==="style" && /^\s*font-size:\s*[\w.%]+\s*;?\s*$/i.test(a.value));
+      if(!keep) el.removeAttribute(a.name);
+    });
+  });
+  return wrap.innerHTML;
+}
+// Existing plain-text notes have no tags — escape them and keep their line breaks.
+function scratchHtml(v){
+  const s=String(v||"");
+  if(!s.trim()) return "";
+  return /<[a-z][\s\S]*>/i.test(s) ? sanitizeNotes(s) : esc(s).replace(/\n/g,"<br>");
+}
+function fmtNote(cmd){ const b=document.getElementById("scratchBox"); if(b){ b.focus(); document.execCommand(cmd,false,null); } }
+function fmtNoteSize(sel){
+  const b=document.getElementById("scratchBox");
+  if(b && sel.value){ b.focus(); document.execCommand("fontSize",false,sel.value); }
+  sel.selectedIndex=0;
+}
+function saveScratch(el,id){
+  const c=getCase(id); if(!c)return;
+  let html=sanitizeNotes(el.innerHTML);
+  if(!el.textContent.trim() && !/<(br|img)/i.test(html)) html="";   // treat whitespace-only as empty
+  if(html===(c.scratchNotes||"")) return;                            // nothing changed — don't write
+  c.scratchNotes=html;
+  persist(saveSubmissionRemote(c));
+}
 
 /* ---- Insurer Outcomes ---- */
 function coverCell(caseId,ioId,key,cv){

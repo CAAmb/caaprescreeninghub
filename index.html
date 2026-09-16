@@ -2257,14 +2257,20 @@ function inDate(v){
   if(!v) return "";
   const s=String(v).trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;                                  // already date-only
-  if(/^\d{4}-\d{2}-\d{2}T00:00:00(\.0+)?Z$/.test(s)) return s.slice(0,10);     // date-only stored as midnight UTC (what this app writes)
+  // Midday UTC (what the flow and this app write) is the same calendar date in every real
+  // timezone, and legacy midnight-UTC values are date-only by convention — take both verbatim.
+  if(/^\d{4}-\d{2}-\d{2}T(00|12):00:00(\.0+)?Z$/.test(s)) return s.slice(0,10);
   const d=new Date(s);
   if(isNaN(d)) return s.slice(0,10);
   return _siteDateFmt ? _siteDateFmt.format(d) : s.slice(0,10);                // en-CA formats as YYYY-MM-DD
 }
 // Parse a YYYY-MM-DD string into plain calendar parts — never touches Date(), so no timezone shift.
 function ymd(s){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s==null?"":s).trim()); return m?{y:+m[1],m:+m[2],d:+m[3]}:null; }
-function outDate(v){ return v?(String(v).slice(0,10)+"T00:00:00Z"):null; }
+// Write date-only values at MIDDAY UTC, never midnight. SharePoint converts the instant to the
+// site's timezone (Sydney) before truncating a Date-only column, so midnight UTC lands on the
+// PREVIOUS day locally and silently loses a day on every save. Midday survives that conversion
+// in every real timezone (UTC-11 … UTC+13). This matches what the Power Automate flow writes.
+function outDate(v){ return v?(String(v).slice(0,10)+"T12:00:00Z"):null; }
 function outNum(v){ return (v===""||v==null)?null:Number(v); }
 function outStr(v){ return (v===""||v==null)?null:String(v); }
 

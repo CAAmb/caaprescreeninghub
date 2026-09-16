@@ -803,13 +803,27 @@ function save(){ /* data now persists to SharePoint via Graph, not localStorage 
 function getCase(id){ return DB.find(c=>c.id===id); }
 function uid(p){ return p + "-" + Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-3); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m])); }
-function age(dob){ if(!dob)return"";const d=new Date(dob);const t=new Date();let a=t.getFullYear()-d.getFullYear();if(t<new Date(t.getFullYear(),d.getMonth(),d.getDate()))a--;return a; }
+// Compare calendar parts only — new Date("YYYY-MM-DD") is UTC midnight, so reading it back with
+// local getters shifted the birthday by a day for viewers behind UTC.
+function age(dob){
+  const b=ymd(dob); if(!b) return "";
+  const t=new Date(), ty=t.getFullYear(), tm=t.getMonth()+1, td=t.getDate();
+  let a=ty-b.y;
+  if(tm<b.m || (tm===b.m && td<b.d)) a--;
+  return a;
+}
 function initials(c){ const p=(c.fullName||"").trim().split(/\s+/); const a=(p[0]||"?")[0]||"?"; const b=p.length>1?(p[p.length-1][0]||""):""; return (a+b).toUpperCase(); }
 function fmtDate(d){ return d?d:"—"; }
 function val(v){ return (v===0||v)?esc(v):"—"; }
 function todayStr(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
 function daysToComplete(c){ return daysBetween(c.preScreeningDate,c.assessmentCompletedDate); }
-function daysBetween(a,b){ if(!a||!b)return null; const d1=new Date(a),d2=new Date(b); if(isNaN(d1)||isNaN(d2))return null; return Math.max(0,Math.round((d2-d1)/86400000)); }
+function daysBetween(a,b){
+  if(!a||!b)return null;
+  const x=ymd(a), y=ymd(b);                                   // date-only: compare as plain calendar dates
+  if(x&&y) return Math.max(0,Math.round((Date.UTC(y.y,y.m-1,y.d)-Date.UTC(x.y,x.m-1,x.d))/86400000));
+  const d1=new Date(a),d2=new Date(b); if(isNaN(d1)||isNaN(d2))return null;
+  return Math.max(0,Math.round((d2-d1)/86400000));
+}
 
 /* ===================== ROUTER ===================== */
 function showDashboard(){
@@ -2231,7 +2245,25 @@ async function resolveGraph(){
 function listPath(key){ return "/sites/"+encodeURIComponent(GRAPH.siteId)+"/lists/"+GRAPH.lists[key]; }
 
 /* ---- conversions ---- */
-function inDate(v){ return v?String(v).slice(0,10):""; }
+// SharePoint Date columns come back as UTC instants. A date-only value entered against a site
+// with Australian regional settings is returned as the PREVIOUS day at 14:00Z (e.g. 25 Apr 1981
+// → "1981-04-24T14:00:00Z"), so naively slicing the first 10 characters lost a day on every record.
+// Resolve the calendar date in the SITE's timezone so it is identical for every viewer.
+const SITE_TZ = "Australia/Sydney";
+const _siteDateFmt = (()=>{ try{
+  return new Intl.DateTimeFormat("en-CA",{timeZone:SITE_TZ,year:"numeric",month:"2-digit",day:"2-digit"});
+}catch(e){ return null; } })();
+function inDate(v){
+  if(!v) return "";
+  const s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;                                  // already date-only
+  if(/^\d{4}-\d{2}-\d{2}T00:00:00(\.0+)?Z$/.test(s)) return s.slice(0,10);     // date-only stored as midnight UTC (what this app writes)
+  const d=new Date(s);
+  if(isNaN(d)) return s.slice(0,10);
+  return _siteDateFmt ? _siteDateFmt.format(d) : s.slice(0,10);                // en-CA formats as YYYY-MM-DD
+}
+// Parse a YYYY-MM-DD string into plain calendar parts — never touches Date(), so no timezone shift.
+function ymd(s){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(s==null?"":s).trim()); return m?{y:+m[1],m:+m[2],d:+m[3]}:null; }
 function outDate(v){ return v?(String(v).slice(0,10)+"T00:00:00Z"):null; }
 function outNum(v){ return (v===""||v==null)?null:Number(v); }
 function outStr(v){ return (v===""||v==null)?null:String(v); }

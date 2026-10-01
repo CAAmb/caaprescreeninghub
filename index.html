@@ -310,6 +310,32 @@
   .toolsel:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
   body.dark .toolsel:focus{box-shadow:0 0 0 3px rgba(207,227,239,.14)}
 
+  /* insurer multi-select in the variant form */
+  .inspickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;
+    border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);max-height:190px;overflow-y:auto}
+  .inschk{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:12.5px}
+  .inschk:hover{background:var(--sky)}
+  .inschk input{width:15px;height:15px;accent-color:var(--bar);flex:0 0 auto;margin:0}
+  .fieldhint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45}
+  .chip.ins{background:var(--sky);color:var(--onaccent);font-weight:650}
+  .preflabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;margin-right:2px}
+  .prefins{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .missins{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff4e7;border:1px solid #f0d4ad;
+    color:#8a5a1e;border-radius:8px;padding:7px 12px;font-size:12px;margin-bottom:12px}
+  .missins span{flex:1}
+  body.dark .missins{background:#3a2c17;border-color:#5a4423;color:#e8b874}
+
+  /* manage categories */
+  .catlist{border:1px solid var(--line);border-radius:9px;overflow:hidden;max-height:46vh;overflow-y:auto}
+  .catrow{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--surface)}
+  .catrow:last-child{border-bottom:none}
+  .catrow .catname{flex:1;font-size:13.5px;font-weight:600;color:var(--navy)}
+  .catrow .catuse{font-size:11.5px;color:var(--muted);font-style:italic}
+  .catadd{display:flex;gap:8px;margin-top:10px}
+  .catadd input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;
+    font-family:inherit;background:var(--surface);color:var(--ink)}
+  .catadd input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
+
   /* library guidance panel on a case */
   .linkbtn{background:none;border:none;padding:0;font:inherit;font-weight:650;color:var(--navy);cursor:pointer;text-align:left}
   .linkbtn:hover{text-decoration:underline}
@@ -686,13 +712,25 @@ const GRAPH_CONFIG = {
   libLists: {
     conditions: "PreScreeningUWConditions",
     variants:   "PreScreeningUWVariants",
-    outcomes:   "PreScreeningUWOutcomes"
+    outcomes:   "PreScreeningUWOutcomes",
+    categories: "PreScreeningUWCategories"
   }
 };
 
 /* ---- reference data ---- */
 // Alphabetical, with "Other" pinned last. Display order only — stored values are unchanged.
-const HEALTH_CATEGORIES = ["Blood-Borne","Cancer/Growth","Cardiac/Vascular","Diabetes","Eye/Ear","GI/Digestive","Gynaecological","Mental Health","Musculoskeletal","Neurological","Respiratory","Sleep Apnoea","Other"];
+// Mutable: replaced at load time from the PreScreeningUWCategories list when that list exists.
+let HEALTH_CATEGORIES = ["Blood-Borne","Cancer/Growth","Cardiac/Vascular","Diabetes","Eye/Ear","GI/Digestive","Gynaecological","Mental Health","Musculoskeletal","Neurological","Respiratory","Sleep Apnoea","Other"];
+const DEFAULT_CATEGORIES = HEALTH_CATEGORIES.slice();
+let CAT_ITEMS=[];   // [{id,name}] when managed from SharePoint
+function catSort(a,b){ if(a==="Other")return 1; if(b==="Other")return -1; return a.localeCompare(b); }
+// Always include the record's current value, even if that category was since removed —
+// otherwise editing a record would silently reassign it to the first option.
+function catOptions(current){
+  const l=["",...HEALTH_CATEGORIES];
+  if(current && !l.includes(current)) l.push(current);
+  return l;
+}
 const TREATMENT_STATUS = ["Ongoing","Resolved","Monitoring","As needed","None"];
 const OUTCOMES = ["Standard","Loaded","Exclusion","Postponed","Declined","Not assessed"];
 const LOADING_TYPES = ["None","Medical %","Medical $ per mille","Total %","Total $ per mille"];
@@ -1212,6 +1250,7 @@ function renderLibrary(){
         <button class="${libView==="condition"?"active":""}" onclick="libView='condition';renderLibrary()">By condition</button>
         <button class="${libView==="insurer"?"active":""}" onclick="libView='insurer';renderLibrary()">By insurer</button>
       </div>
+      <button class="btn ghost sm" title="Manage categories" onclick="openCatModal()">⚙ Categories</button>
     </div>
     ${libView==="insurer" ? insurerViewHtml() : `<div class="liblist">${rows}</div>`}`;
 }
@@ -1325,8 +1364,11 @@ function variantCard(c,vr){
       <div class="expectation">
         <div class="explabel">Our expectation</div>
         <div class="expgrid">${exp}</div>
-        ${vr.preferredInsurers?`<div class="prefins">Approach first: <b>${esc(vr.preferredInsurers)}</b></div>`:""}
+        ${vr.preferredInsurers?`<div class="prefins"><span class="preflabel">Applies to</span>${insChips(vr.preferredInsurers)}</div>`:""}
       </div>
+      ${(()=>{const m=missingInsurers(vr); return m.length?`<div class="missins">
+        <span>No outcome recorded yet for ${m.map(esc).join(", ")}</span>
+        <button class="btn ghost sm" onclick="addMissingOutcomes('${vr.id}')">+ Add row${m.length!==1?"s":""}</button></div>`:"";})()}
       ${vr.notes?`<div class="varnotes">${esc(vr.notes)}</div>`:""}
       <div class="insurerscroll"><table class="insurertbl libtbl">
         <thead><tr><th>Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Confirmed</th><th></th></tr></thead>
@@ -1381,6 +1423,33 @@ function matchConditions(h){
   const byCat=cat?LIB.conditions.filter(x=>x.category===cat).slice(0,4):[];
   return {conds:byCat,kind:byCat.length?"category":"none"};
 }
+/* ---- "Expectation applies to" insurer selection (stored comma-separated in PreferredInsurers) ---- */
+function insList(str){ return String(str||"").split(",").map(s=>s.trim()).filter(Boolean); }
+function insChips(str){ return insList(str).map(n=>`<span class="chip ins">${esc(n)}</span>`).join(""); }
+function insurerPickHtml(selected){
+  const sel=insList(selected);
+  const all=INSURERS.concat(sel.filter(x=>!INSURERS.includes(x)));   // keep any legacy free-text names
+  return `<div class="field full"><label>Expectation applies to</label>
+    <div class="inspickgrid">${all.map(n=>`<label class="inschk">
+      <input type="checkbox" class="varIns" value="${esc(n)}" ${sel.includes(n)?"checked":""}><span>${esc(n)}</span></label>`).join("")}</div>
+    <div class="fieldhint">Tick the insurers this expectation is based on. Any ticked insurer without a recorded outcome is flagged on the variant.</div></div>`;
+}
+function selectedInsurers(){ return [].map.call(document.querySelectorAll(".varIns:checked"),x=>x.value).join(", "); }
+// Insurers the expectation claims to cover but which have no evidence row yet.
+function missingInsurers(vr){
+  const have=new Set(vr.outcomes.map(o=>(o.insurerName||"").trim().toLowerCase()));
+  return insList(vr.preferredInsurers).filter(n=>!have.has(n.toLowerCase()));
+}
+function addMissingOutcomes(vid){
+  const vr=getVar(vid); if(!vr)return;
+  const miss=missingInsurers(vr); if(!miss.length)return;
+  miss.forEach(n=>{
+    const o={id:uid("UO"),insurerName:n,notes:"",sourceCaseId:"",lastConfirmed:"",covers:{}};
+    COVER_KEYS.forEach(k=>o.covers[k]={type:"Not assessed",detail:""});
+    vr.outcomes.push(o); LIB.outcomes.push(o); persist(saveOutcomeRemote(vr,o));
+  });
+  renderCondition(); toast(miss.length+" insurer row"+(miss.length!==1?"s":"")+" added");
+}
 function expLine(vr){
   return [["Life",vr.expLife],["TPD",vr.expTPD],["Trauma",vr.expTrauma],["IP",vr.expIncomeProtection]]
     .filter(([k,v])=>v).map(([k,v])=>`<span><b>${k}</b> ${esc(v)}</span>`).join("");
@@ -1405,7 +1474,7 @@ function librarySection(c){
           <div class="lgvarhead">${esc(vr.name)}${vr.severity?`<span class="sev sev-${esc(vr.severity).replace(/\s+/g,"")}">${esc(vr.severity)}</span>`:""}</div>
           ${vr.criteria?`<div class="lgcrit">${esc(vr.criteria)}</div>`:""}
           <div class="lgexp">${expLine(vr)||'<span class="muted">No expectation recorded</span>'}</div>
-          ${vr.preferredInsurers?`<div class="lgpref">Approach first: <b>${esc(vr.preferredInsurers)}</b></div>`:""}
+          ${vr.preferredInsurers?`<div class="lgpref"><span class="preflabel">Applies to</span>${insChips(vr.preferredInsurers)}</div>`:""}
         </div>`).join("")
         : `<div class="muted" style="font-size:12px;padding:4px 0">No variants recorded yet.</div>`;
       return `<div class="lgcond">
@@ -1477,6 +1546,74 @@ function doPromote(caseId,ioId){
   persist(saveOutcomeRemote(vr,row));
 }
 
+/* ---- Manage categories ---- */
+function categoryUsage(name){
+  let n=0;
+  LIB.conditions.forEach(c=>{ if(c.category===name) n++; });
+  DB.forEach(c=>(c.healthIssues||[]).forEach(h=>{ if(cleanVal(h.category)===name) n++; }));
+  return n;
+}
+function openCatModal(){
+  if(!catsManaged()){
+    openModal("Manage categories",
+      `<p class="muted" style="font-size:13px;line-height:1.6">To add or remove categories, create a SharePoint list called
+        <code>PreScreeningUWCategories</code> on the PowerApp site with just the default <b>Title</b> column — one row per category.</p>
+       <p class="muted" style="font-size:12.5px;line-height:1.6">Until then the built-in list is used and can't be edited.</p>`,
+      `<button class="btn" onclick="closeModal()">Close</button>`);
+    return;
+  }
+  const seeded=CAT_ITEMS.length>0;
+  const rows=HEALTH_CATEGORIES.map(n=>{
+    const item=CAT_ITEMS.find(x=>x.name===n); const used=categoryUsage(n);
+    return `<div class="catrow">
+      <span class="catname">${esc(n)}</span>
+      <span class="catuse">${used?used+" in use":""}</span>
+      ${item?`<button class="icnbtn" title="Remove" onclick="removeCategory('${item.id}','${esc(n).replace(/'/g,"\\'")}')">✕</button>`:`<span class="muted" style="font-size:11px">built-in</span>`}
+    </div>`;
+  }).join("");
+  openModal("Manage categories",
+    `${seeded?"":`<div class="scratchwarn">This list is empty, so the built-in categories are still being used. Seed it first to start managing them.</div>`}
+     <div class="catlist">${rows}</div>
+     <div class="catadd">
+       <input id="newCat" placeholder="New category name…" onkeydown="if(event.key==='Enter')addCategory()">
+       <button class="btn peach sm" onclick="addCategory()">Add</button>
+     </div>
+     ${seeded?"":`<button class="btn ghost sm" style="margin-top:10px" onclick="seedCategories()">Seed with the ${DEFAULT_CATEGORIES.length} built-in categories</button>`}
+     <p class="muted" style="font-size:12px;line-height:1.5;margin-top:12px">
+       Removing a category leaves existing records unchanged — they keep the old value and it still shows in filters.</p>`,
+    `<button class="btn" onclick="closeModal()">Done</button>`);
+}
+async function addCategory(){
+  const name=gv("newCat"); if(!name) return;
+  if(HEALTH_CATEGORIES.some(x=>x.toLowerCase()===name.toLowerCase())){ toast("That category already exists","err"); return; }
+  try{
+    const it=await gCreate("categories",{Title:name});
+    CAT_ITEMS.push({id:it.id,name});
+    HEALTH_CATEGORIES.push(name); HEALTH_CATEGORIES.sort(catSort);
+    toast(name+" added"); openCatModal(); renderLibrary();
+  }catch(e){ toast("Couldn't add: "+e.message,"err"); }
+}
+async function removeCategory(id,name){
+  const used=categoryUsage(name);
+  const msg = used
+    ? `"${name}" is used by ${used} record${used!==1?"s":""}.\n\nRemove it from the list anyway? Those records keep the value — it just won't be offered for new entries.`
+    : `Remove "${name}" from the category list?`;
+  if(!confirm(msg)) return;
+  try{
+    await gDelete("categories",id);
+    CAT_ITEMS=CAT_ITEMS.filter(x=>x.id!==id);
+    const i=HEALTH_CATEGORIES.indexOf(name); if(i>-1) HEALTH_CATEGORIES.splice(i,1);
+    toast(name+" removed"); openCatModal(); renderLibrary();
+  }catch(e){ toast("Couldn't remove: "+e.message,"err"); }
+}
+async function seedCategories(){
+  if(!confirm(`Add the ${DEFAULT_CATEGORIES.length} built-in categories to the list?`)) return;
+  try{
+    for(const n of DEFAULT_CATEGORIES){ const it=await gCreate("categories",{Title:n}); CAT_ITEMS.push({id:it.id,name:n}); }
+    toast("Categories seeded"); openCatModal();
+  }catch(e){ toast("Seeding failed: "+e.message,"err"); }
+}
+
 /* ---- Library CRUD ---- */
 function setLibOutcome(vid,oid,field,val){
   const vr=getVar(vid); if(!vr)return; const o=vr.outcomes.find(x=>x.id===oid); if(!o)return;
@@ -1509,7 +1646,7 @@ function openCondModal(id,prefill){
   openModal(id?"Edit condition":"New condition",
     `<div class="formgrid">
       ${fld("Condition name","uc_name",c.name)}
-      ${fld("Category","uc_category",c.category,"select",["",...HEALTH_CATEGORIES])}
+      ${fld("Category","uc_category",c.category,"select",catOptions(c.category))}
       ${fld("Aliases (comma separated)","uc_aliases",c.aliases)}
       ${fld("General notes","uc_notes",c.notes,"textarea")}
     </div>`,
@@ -1550,7 +1687,7 @@ function openVarModal(cid,vid){
       ${fld("Expectation — TPD","uv_expTPD",vr.expTPD)}
       ${fld("Expectation — Trauma","uv_expTrauma",vr.expTrauma)}
       ${fld("Expectation — Income Protection","uv_expIncomeProtection",vr.expIncomeProtection)}
-      ${fld("Approach first (insurers)","uv_preferredInsurers",vr.preferredInsurers)}
+      ${insurerPickHtml(vr.preferredInsurers)}
       ${fld("Notes","uv_notes",vr.notes,"textarea")}
     </div>`,
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
@@ -1564,7 +1701,7 @@ function saveVarModal(cid,vid){
   vr.name=name; vr.severity=gv("uv_severity"); vr.criteria=gv("uv_criteria");
   vr.expLife=gv("uv_expLife"); vr.expTPD=gv("uv_expTPD"); vr.expTrauma=gv("uv_expTrauma");
   vr.expIncomeProtection=gv("uv_expIncomeProtection");
-  vr.preferredInsurers=gv("uv_preferredInsurers"); vr.notes=gv("uv_notes");
+  vr.preferredInsurers=selectedInsurers(); vr.notes=gv("uv_notes");
   if(isNew){ c.variants.push(vr); LIB.variants.push(vr); }
   closeModal(); renderCondition(); persist(saveVariantRemote(c,vr));
 }
@@ -2703,7 +2840,7 @@ function openHealthModal(caseId,hid){
   const c=getCase(caseId);
   const h=hid?c.healthIssues.find(x=>x.id===hid):{};
   const body=`<div class="formgrid">
-    ${fld("Category","h_category",h.category||"Musculoskeletal","select",HEALTH_CATEGORIES)}
+    ${fld("Category","h_category",h.category||HEALTH_CATEGORIES[0]||"","select",catOptions(h.category).filter(Boolean))}
     ${fld("Diagnosis","h_diagnosis",h.diagnosis)}
     ${fld("Body area","h_bodyArea",h.bodyArea)}
     ${fld("Date first symptoms","h_dateFirstSymptoms",h.dateFirstSymptoms)}
@@ -2900,10 +3037,12 @@ async function resolveGraph(){
   LIB_MISSING=[];
   for(const key of Object.keys(GRAPH_CONFIG.libLists||{})){
     const m = lists.value.find(l=>l.displayName===GRAPH_CONFIG.libLists[key]);
-    if(m) GRAPH.lists[key]=m.id; else LIB_MISSING.push(GRAPH_CONFIG.libLists[key]);
+    if(m) GRAPH.lists[key]=m.id;
+    else if(key!=="categories") LIB_MISSING.push(GRAPH_CONFIG.libLists[key]);  // categories is independently optional
   }
 }
 function libReady(){ return LIB_MISSING.length===0 && !!GRAPH.lists.conditions; }
+function catsManaged(){ return !!GRAPH.lists.categories; }
 function listPath(key){ return "/sites/"+encodeURIComponent(GRAPH.siteId)+"/lists/"+GRAPH.lists[key]; }
 
 /* ---- conversions ---- */
@@ -3062,8 +3201,19 @@ function uwoFields(o){
   COVER_KEYS.forEach(k=>{ const cv=o.covers[k]||{}; out[k+"Outcome"]=outStr(cv.type); out[k+"Detail"]=outStr(cv.detail); });
   return out; }
 
+async function loadCategories(){
+  CAT_ITEMS=[];
+  if(!catsManaged()) return;                       // list not created — keep the built-in defaults
+  const items=await graphGetAll(listPath("categories")+"/items?$expand=fields");
+  const names=items.map(i=>({id:i.id,name:((i.fields||{}).Title||"").trim()})).filter(x=>x.name);
+  if(!names.length) return;                        // list exists but empty — keep defaults until seeded
+  CAT_ITEMS=names;
+  HEALTH_CATEGORIES.length=0;
+  names.map(x=>x.name).sort(catSort).forEach(n=>HEALTH_CATEGORIES.push(n));
+}
 async function loadLibrary(){
   LIB={conditions:[],variants:[],outcomes:[]};
+  try{ await loadCategories(); }catch(e){ console.warn("Categories load failed:",e.message); }
   if(!libReady()) return;
   const [cs,vs,os]=await Promise.all([
     graphGetAll(listPath("conditions")+"/items?$expand=fields"),

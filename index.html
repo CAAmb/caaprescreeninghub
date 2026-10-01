@@ -298,6 +298,55 @@
   .scratchbar select{height:28px;border:1px solid var(--line);background:var(--surface);color:var(--navy);
     border-radius:6px;font-size:12px;font-family:inherit;padding:0 4px;cursor:pointer}
   .scratchbar .bardiv{width:1px;height:18px;background:var(--line);margin:0 3px}
+  /* ===== Underwriting Library ===== */
+  .libnote{background:var(--sky);border-radius:8px;padding:9px 14px;font-size:12.5px;color:var(--onaccent);margin-bottom:14px;line-height:1.5}
+  .liblist{display:flex;flex-direction:column;gap:8px}
+  .libcard{display:flex;align-items:center;gap:14px;background:var(--surface);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:13px 16px;cursor:pointer;border-left:4px solid var(--sky);transition:transform .06s,box-shadow .12s}
+  .libcard:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(15,36,51,.14);border-left-color:var(--peach)}
+  .libcard .lmain{flex:1;min-width:0}
+  .libcard .lname{font-size:15px;font-weight:650;color:var(--navy)}
+  .libcard .lmeta{margin-top:5px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
+  .stale{font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+  .stale.fresh{background:#e6f6ee;color:var(--good)}
+  .stale.ageing{background:#fff4e7;color:var(--warn)}
+  .stale.stale{background:#fdeee0;color:#9a5a25}
+  .stale.never{background:#fbe9e6;color:var(--bad)}
+  .stale.none{background:var(--concrete);color:var(--muted)}
+  body.dark .stale.fresh{background:#14301f;color:#69cf9a}
+  body.dark .stale.ageing{background:#3a2c17;color:#e8b874}
+  body.dark .stale.stale{background:#3b2a1a;color:#f0b58c}
+  body.dark .stale.never{background:#3a1e19;color:#e8968a}
+  body.dark .stale.none{background:#1d3140;color:var(--muted)}
+  .condhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .condnotes{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;
+    font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:16px;white-space:pre-wrap}
+  .varcard .shead{flex-wrap:wrap}
+  .sev{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;text-transform:uppercase;letter-spacing:.3px}
+  .sev-Mild{background:#e6f6ee;color:var(--good)}
+  .sev-Moderate{background:#fff4e7;color:var(--warn)}
+  .sev-Severe{background:#fbe9e6;color:var(--bad)}
+  .sev-Notspecified{background:var(--concrete);color:var(--muted)}
+  body.dark .sev-Mild{background:#14301f;color:#69cf9a}
+  body.dark .sev-Moderate{background:#3a2c17;color:#e8b874}
+  body.dark .sev-Severe{background:#3a1e19;color:#e8968a}
+  body.dark .sev-Notspecified{background:#1d3140;color:var(--muted)}
+  .criteria{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 13px;
+    font-size:12.5px;line-height:1.55;margin-bottom:12px}
+  .criteria b{color:var(--navy)}
+  .expectation{background:var(--sky);border-radius:8px;padding:11px 13px;margin-bottom:12px}
+  .expectation .explabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--onaccent);opacity:.8;margin-bottom:7px}
+  .expgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .expcell{background:var(--surface);border-radius:6px;padding:7px 9px;min-width:0}
+  .expcell span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .expcell b{display:block;font-size:12.5px;color:var(--navy);margin-top:2px;word-break:break-word}
+  .prefins{margin-top:8px;font-size:12.5px;color:var(--onaccent)}
+  .varnotes{font-size:12.5px;line-height:1.6;color:var(--muted);margin-bottom:12px;white-space:pre-wrap}
+  .libtbl td.confcell{min-width:132px}
+  .libtbl td.confcell input{margin-bottom:5px}
+  .libtbl td.confcell .stale{display:inline-block;margin-bottom:5px}
+  .libtbl td.confcell .icnbtn{font-size:11px;padding:4px 7px;width:100%}
+  @media(max-width:900px){ .expgrid{grid-template-columns:1fr 1fr} }
   .sendqueue{border:1px solid var(--line);border-radius:9px;overflow:hidden}
   .qrow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px;background:var(--surface)}
   .qrow:last-child{border-bottom:none}
@@ -553,6 +602,7 @@
   <div id="view-dashboard"></div>
   <!-- DETAIL -->
   <div id="view-detail" class="hidden"></div>
+  <div id="view-library" class="hidden"></div>
 </div>
 
 <!-- Print-only report (built on demand) -->
@@ -593,6 +643,13 @@ const GRAPH_CONFIG = {
     healthIssues: "PreScreeningHealthIssues",
     insurerOutcomes: "PreScreeningInsurerOutcomes",
     familyHistory: "PreScreeningFamilyHistory"
+  },
+  // Underwriting Library — OPTIONAL. Resolved leniently so the rest of the app keeps working
+  // before these lists exist; the Library tab reports which are missing.
+  libLists: {
+    conditions: "PreScreeningUWConditions",
+    variants:   "PreScreeningUWVariants",
+    outcomes:   "PreScreeningUWOutcomes"
   }
 };
 
@@ -790,6 +847,12 @@ let currentTab = "In Progress";
 let searchTerm = "";
 let openCaseId = null;
 let editingCover = null; // {ioId, key} — inline per-cover edit on detail screen
+/* Underwriting Library state */
+let LIB={conditions:[],variants:[],outcomes:[]};
+let LIB_MISSING=[];
+let libCondId=null, libSearch="", libCat="", libSort="name";
+const SEVERITIES=["Mild","Moderate","Severe","Not specified"];
+
 // Client info panels start collapsed; the set tracks which are collapsed (persists across re-renders).
 const PANEL_TITLES = ["Personal","Residency / Travel","Lifestyle","General Health screening","Occupational / Financial"];
 const collapsedPanels = new Set(PANEL_TITLES);
@@ -837,9 +900,12 @@ function daysBetween(a,b){
 }
 
 /* ===================== ROUTER ===================== */
+function hideAllViews(){
+  ["view-detail","view-dashboard","view-library"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+}
 function showDashboard(){
   openCaseId=null; editingCover=null;
-  document.getElementById("view-detail").classList.add("hidden");
+  hideAllViews();
   document.getElementById("view-dashboard").classList.remove("hidden");
   document.getElementById("crumb").innerHTML="";
   document.body.classList.remove("viewing-case");
@@ -848,11 +914,28 @@ function showDashboard(){
 function showCases(tab){
   if(tab) currentTab=tab;
   openCaseId=null; editingCover=null;
-  document.getElementById("view-detail").classList.add("hidden");
+  hideAllViews();
   document.getElementById("view-dashboard").classList.remove("hidden");
   document.getElementById("crumb").innerHTML="Cases";
   document.body.classList.remove("viewing-case");
   renderCases();
+}
+function showLibrary(){
+  openCaseId=null; editingCover=null; libCondId=null;
+  hideAllViews();
+  document.getElementById("view-library").classList.remove("hidden");
+  document.getElementById("crumb").innerHTML="Underwriting Library";
+  document.body.classList.remove("viewing-case");
+  renderLibrary();
+}
+function showCondition(id){
+  libCondId=id;
+  hideAllViews();
+  document.getElementById("view-library").classList.remove("hidden");
+  const c=getCond(id);
+  document.getElementById("crumb").innerHTML="Underwriting Library / "+esc(c?c.name:"");
+  document.body.classList.remove("viewing-case");
+  renderCondition();
 }
 function showDetail(id){
   if(id!==openCaseId) editingCover=null;
@@ -896,7 +979,9 @@ function renderDashboard(){
   const unass=DB.filter(c=>!c.complexity).length;
 
   document.getElementById("view-dashboard").innerHTML = `
-    <div class="pagehead"><h1 class="pagetitle">Dashboard</h1><button class="btn peach" onclick="openCaseModal()">+ New Case</button></div>
+    <div class="pagehead"><h1 class="pagetitle">Dashboard</h1>
+      <button class="btn ghost" onclick="showLibrary()">📚 Underwriting Library</button>
+      <button class="btn peach" onclick="openCaseModal()">+ New Case</button></div>
     <div class="stats">
       <div class="stat"><div class="num">${total}</div><div class="lbl">Total cases</div></div>
       <div class="stat clickable" onclick="showCases('In Progress')"><div class="num">${inProg}</div><div class="lbl">In progress →</div></div>
@@ -1005,6 +1090,271 @@ function onSearch(v){
 }
 function setTab(t){ currentTab=t; renderCases(); }
 function setComplexity(id,val){ const c=getCase(id); c.complexity=(c.complexity===val?"":val); c.lastUpdated=todayStr(); renderCases(); persist(saveSubmissionRemote(c)); }
+
+/* ===================== UNDERWRITING LIBRARY ===================== */
+function getCond(id){ return LIB.conditions.find(c=>c.id===id); }
+function getVar(vid){ return LIB.variants.find(v=>v.id===vid); }
+// Staleness is read from LastConfirmed (set when an outcome is actually re-verified),
+// not SharePoint's Modified — fixing a typo shouldn't make an entry look current.
+function staleInfo(dateStr){
+  if(!dateStr) return {cls:"never",label:"Never confirmed",days:null};
+  const d=daysBetween(dateStr,todayStr());
+  if(d==null) return {cls:"never",label:"Never confirmed",days:null};
+  const txt = d<31 ? (d<=1?"today":d+"d ago") : Math.round(d/30)+"mo ago";
+  return { cls: d<90?"fresh":(d<180?"ageing":"stale"), label:txt, days:d };
+}
+function condStale(c){   // worst case across every outcome under the condition
+  const rows=[].concat(...c.variants.map(v=>v.outcomes));
+  if(!rows.length) return {cls:"none",label:"No outcomes",days:-1};
+  if(rows.some(o=>!o.lastConfirmed)) return {cls:"never",label:"Needs confirming",days:1e9};
+  let worst=null;
+  rows.forEach(o=>{ const s=staleInfo(o.lastConfirmed); if(!worst||s.days>worst.days) worst=s; });
+  return worst;
+}
+function staleBadge(s){ return `<span class="stale ${s.cls}">${esc(s.label)}</span>`; }
+
+function renderLibrary(){
+  const v=document.getElementById("view-library");
+  if(!libReady()){ v.innerHTML=libSetupHtml(); return; }
+  const cats=[...new Set(LIB.conditions.map(c=>c.category).filter(Boolean))].sort();
+  let list=LIB.conditions.filter(c=>{
+    if(libCat && c.category!==libCat) return false;
+    if(!libSearch) return true;
+    const t=libSearch.toLowerCase();
+    return (c.name+" "+c.aliases+" "+c.category+" "+c.variants.map(x=>x.name).join(" ")).toLowerCase().includes(t);
+  });
+  if(libSort==="stale") list=list.slice().sort((a,b)=>condStale(b).days-condStale(a).days);
+  else list=list.slice().sort((a,b)=>a.name.localeCompare(b.name));
+
+  const rows=list.map(c=>{
+    const ins=new Set([].concat(...c.variants.map(v=>v.outcomes.map(o=>(o.insurerName||"").trim()))).filter(Boolean));
+    return `<div class="libcard" onclick="showCondition('${c.id}')">
+      <div class="lmain">
+        <div class="lname">${esc(c.name)}</div>
+        <div class="lmeta">${c.category?`<span class="chip cat">${esc(c.category)}</span>`:""}
+          <span class="chip">${c.variants.length} variant${c.variants.length!==1?"s":""}</span>
+          <span class="chip">${ins.size} insurer${ins.size!==1?"s":""}</span></div>
+        ${c.aliases?`<div class="lmeta muted">aka ${esc(c.aliases)}</div>`:""}
+      </div>
+      <div class="lright">${staleBadge(condStale(c))}</div>
+    </div>`;
+  }).join("") || `<div class="empty">${LIB.conditions.length?"No conditions match your search.":"No conditions yet — add the first one as it comes up on a case."}</div>`;
+
+  v.innerHTML=`
+    <div class="pagehead"><button class="btn ghost sm" onclick="showDashboard()">← Dashboard</button>
+      <h1 class="pagetitle">Underwriting Library</h1>
+      <button class="btn peach" onclick="openCondModal()">+ New condition</button></div>
+    <div class="libnote">Internal guidance based on our own past outcomes — not a prediction of what an insurer will offer. Always confirm current appetite for the specific client.</div>
+    <div class="toolbar">
+      <div class="search">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="libSearchInput" placeholder="Search conditions, aliases, variants…" value="${esc(libSearch)}" oninput="onLibSearch(this.value)">
+      </div>
+      <select onchange="libCat=this.value;renderLibrary()">
+        <option value="">All categories</option>
+        ${cats.map(x=>`<option value="${esc(x)}" ${x===libCat?"selected":""}>${esc(x)}</option>`).join("")}
+      </select>
+      <select onchange="libSort=this.value;renderLibrary()">
+        <option value="name" ${libSort==="name"?"selected":""}>Sort: A–Z</option>
+        <option value="stale" ${libSort==="stale"?"selected":""}>Sort: most stale first</option>
+      </select>
+    </div>
+    <div class="liblist">${rows}</div>`;
+}
+function libSetupHtml(){
+  return `<div class="pagehead"><button class="btn ghost sm" onclick="showDashboard()">← Dashboard</button>
+      <h1 class="pagetitle">Underwriting Library</h1></div>
+    <div class="section"><div class="sbody">
+      <h3 style="margin:0 0 8px">Setup required</h3>
+      <p class="muted" style="font-size:13px;line-height:1.6">These SharePoint lists don't exist yet on the PowerApp site:</p>
+      <ul style="font-size:13px;line-height:1.8">${LIB_MISSING.map(n=>`<li><code>${esc(n)}</code></li>`).join("")}</ul>
+      <p class="muted" style="font-size:12.5px;line-height:1.6">Create them with the columns from the build spec, then refresh. The rest of the Hub works normally in the meantime.</p>
+    </div></div>`;
+}
+function onLibSearch(v){
+  const old=document.getElementById("libSearchInput"); const pos=old?old.selectionStart:null;
+  libSearch=v; renderLibrary();
+  const el=document.getElementById("libSearchInput"); if(!el)return;
+  el.focus(); const at=(pos==null?el.value.length:Math.min(pos,el.value.length));
+  try{ el.setSelectionRange(at,at); }catch(e){}
+}
+
+function renderCondition(){
+  const c=getCond(libCondId); const v=document.getElementById("view-library");
+  if(!c){ showLibrary(); return; }
+  v.innerHTML=`
+    <div class="pagehead"><button class="btn ghost sm" onclick="showLibrary()">← Underwriting Library</button>
+      <h1 class="pagetitle">${esc(c.name)}</h1>
+      <button class="btn ghost sm" onclick="openCondModal('${c.id}')">Edit</button>
+      <button class="btn danger sm" onclick="delCondition('${c.id}')">🗑 Delete</button>
+      <button class="btn peach sm" onclick="openVarModal('${c.id}')">+ Add variant</button></div>
+    <div class="condhead">
+      ${c.category?`<span class="chip cat">${esc(c.category)}</span>`:""}
+      ${c.aliases?`<span class="muted" style="font-size:12.5px">aka ${esc(c.aliases)}</span>`:""}
+      ${staleBadge(condStale(c))}
+    </div>
+    ${c.notes?`<div class="condnotes">${esc(c.notes)}</div>`:""}
+    ${c.variants.length? c.variants.map(vr=>variantCard(c,vr)).join("")
+      : `<div class="empty">No variants yet. Add one — e.g. “Mild — no medication, &gt;2yrs stable”.</div>`}
+    <datalist id="insurerList">${INSURERS.map(x=>`<option value="${esc(x)}"></option>`).join("")}</datalist>`;
+  autoGrowAll();
+}
+function variantCard(c,vr){
+  const rows=vr.outcomes.map(o=>libOutcomeRow(vr,o)).join("")
+    || `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center">No insurer outcomes recorded yet.</td></tr>`;
+  const exp=[["Life",vr.expLife],["TPD",vr.expTPD],["Trauma",vr.expTrauma],["Income Protection",vr.expIncomeProtection]]
+    .map(([k,val])=>`<div class="expcell"><span>${k}</span><b>${val?esc(val):"—"}</b></div>`).join("");
+  return `<div class="section varcard">
+    <div class="shead">
+      <h2>${esc(vr.name)}</h2>
+      ${vr.severity?`<span class="sev sev-${esc(vr.severity).replace(/\s+/g,"")}">${esc(vr.severity)}</span>`:""}
+      <span style="flex:1"></span>
+      <button class="btn ghost sm" onclick="openVarModal('${c.id}','${vr.id}')">Edit</button>
+      <button class="btn ghost sm" onclick="delVariant('${c.id}','${vr.id}')">Del</button>
+      <button class="btn peach sm" onclick="addLibOutcome('${vr.id}')">+ Insurer</button>
+    </div>
+    <div class="sbody">
+      ${vr.criteria?`<div class="criteria"><b>Applies when:</b> ${esc(vr.criteria)}</div>`:""}
+      <div class="expectation">
+        <div class="explabel">Our expectation</div>
+        <div class="expgrid">${exp}</div>
+        ${vr.preferredInsurers?`<div class="prefins">Approach first: <b>${esc(vr.preferredInsurers)}</b></div>`:""}
+      </div>
+      ${vr.notes?`<div class="varnotes">${esc(vr.notes)}</div>`:""}
+      <div class="insurerscroll"><table class="insurertbl libtbl">
+        <thead><tr><th>Insurer</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Confirmed</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+    </div></div>`;
+}
+function libOutcomeRow(vr,o){
+  const s=staleInfo(o.lastConfirmed);
+  const cells=COVER_KEYS.map(k=>{
+    const cv=o.covers[k]||{type:"Not assessed",detail:""};
+    return `<td class="covercell" style="background:${coverTint(cv.type)}">
+      <select onchange="setLibCover('${vr.id}','${o.id}','${k}','type',this.value)">
+        ${COVER_OUTCOMES.map(x=>`<option ${x===cv.type?"selected":""}>${esc(x)}</option>`).join("")}
+      </select>
+      <input class="mini" placeholder="detail…" value="${esc(cv.detail)}"
+        onchange="setLibCover('${vr.id}','${o.id}','${k}','detail',this.value)">
+    </td>`;
+  }).join("");
+  return `<tr>
+    <td class="insurercell">
+      <input class="nm" list="insurerList" value="${esc(o.insurerName)}" placeholder="Insurer…" autocomplete="off"
+        onchange="setLibOutcome('${vr.id}','${o.id}','insurerName',this.value)">
+      <textarea class="notes" placeholder="Notes…" oninput="autoGrow(this)"
+        onchange="setLibOutcome('${vr.id}','${o.id}','notes',this.value)">${esc(o.notes||"")}</textarea>
+    </td>
+    ${cells}
+    <td class="confcell">
+      <input type="date" value="${esc(o.lastConfirmed)}" onchange="setLibOutcome('${vr.id}','${o.id}','lastConfirmed',this.value)">
+      ${staleBadge(s)}
+      <button class="icnbtn" title="Mark confirmed today" onclick="confirmLibOutcome('${vr.id}','${o.id}')">✓ Still current</button>
+    </td>
+    <td><button class="icnbtn" onclick="delLibOutcome('${vr.id}','${o.id}')">Del</button></td>
+  </tr>`;
+}
+
+/* ---- Library CRUD ---- */
+function setLibOutcome(vid,oid,field,val){
+  const vr=getVar(vid); if(!vr)return; const o=vr.outcomes.find(x=>x.id===oid); if(!o)return;
+  o[field]=val; persist(saveOutcomeRemote(vr,o));
+  if(field==="lastConfirmed") renderCondition();
+}
+function setLibCover(vid,oid,key,prop,val){
+  const vr=getVar(vid); if(!vr)return; const o=vr.outcomes.find(x=>x.id===oid); if(!o)return;
+  o.covers[key]=o.covers[key]||{type:"Not assessed",detail:""};
+  o.covers[key][prop]=val;
+  persist(saveOutcomeRemote(vr,o));
+  if(prop==="type") renderCondition();
+}
+function confirmLibOutcome(vid,oid){ setLibOutcome(vid,oid,"lastConfirmed",todayStr()); }
+function addLibOutcome(vid){
+  const vr=getVar(vid); if(!vr)return;
+  const o={id:uid("UO"),insurerName:"",notes:"",sourceCaseId:"",lastConfirmed:todayStr(),covers:{}};
+  COVER_KEYS.forEach(k=>o.covers[k]={type:"Not assessed",detail:""});
+  vr.outcomes.push(o); LIB.outcomes.push(o);
+  renderCondition(); persist(saveOutcomeRemote(vr,o));
+}
+async function delLibOutcome(vid,oid){
+  if(!confirm("Delete this insurer row?"))return;
+  const vr=getVar(vid); const o=vr.outcomes.find(x=>x.id===oid);
+  vr.outcomes=vr.outcomes.filter(x=>x.id!==oid); LIB.outcomes=LIB.outcomes.filter(x=>x.id!==oid);
+  renderCondition(); if(o&&o.spId) await persist(gDelete("outcomes",o.spId));
+}
+function openCondModal(id){
+  const c=id?getCond(id):{name:"",category:"",aliases:"",notes:""};
+  openModal(id?"Edit condition":"New condition",
+    `<div class="formgrid">
+      ${fld("Condition name","uc_name",c.name)}
+      ${fld("Category","uc_category",c.category,"select",["",...HEALTH_CATEGORIES])}
+      ${fld("Aliases (comma separated)","uc_aliases",c.aliases)}
+      ${fld("General notes","uc_notes",c.notes,"textarea")}
+    </div>`,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn peach" onclick="saveCondModal(${id?`'${id}'`:"null"})">Save</button>`);
+}
+function saveCondModal(id){
+  const name=gv("uc_name"); if(!name){ toast("Condition name is required","err"); return; }
+  let c=id?getCond(id):null;
+  const isNew=!c;
+  if(isNew){ c={id:uid("UC"),name:"",category:"",aliases:"",notes:"",variants:[]}; }
+  c.name=name; c.category=gv("uc_category"); c.aliases=gv("uc_aliases"); c.notes=gv("uc_notes");
+  if(isNew){ LIB.conditions.push(c); LIB.conditions.sort((a,b)=>a.name.localeCompare(b.name)); }
+  closeModal();
+  if(libCondId) renderCondition(); else renderLibrary();
+  persist(saveConditionRemote(c));
+}
+async function delCondition(id){
+  const c=getCond(id); if(!c)return;
+  if(!confirm(`Delete "${c.name}" and all its variants and insurer outcomes?\n\nThis cannot be undone.`))return;
+  const vars=c.variants.slice();
+  LIB.conditions=LIB.conditions.filter(x=>x.id!==id);
+  showLibrary();
+  for(const vr of vars){
+    for(const o of vr.outcomes){ if(o.spId) await persist(gDelete("outcomes",o.spId)); }
+    if(vr.spId) await persist(gDelete("variants",vr.spId));
+  }
+  if(c.spId) await persist(gDelete("conditions",c.spId));
+}
+function openVarModal(cid,vid){
+  const vr=vid?getVar(vid):{name:"",severity:"Not specified",criteria:"",expLife:"",expTPD:"",expTrauma:"",expIncomeProtection:"",preferredInsurers:"",notes:""};
+  openModal(vid?"Edit variant":"New variant",
+    `<div class="formgrid">
+      ${fld("Variant name","uv_name",vr.name)}
+      ${fld("Severity","uv_severity",vr.severity,"select",SEVERITIES)}
+      ${fld("Applies when (criteria)","uv_criteria",vr.criteria,"textarea")}
+      ${fld("Expectation — Life","uv_expLife",vr.expLife)}
+      ${fld("Expectation — TPD","uv_expTPD",vr.expTPD)}
+      ${fld("Expectation — Trauma","uv_expTrauma",vr.expTrauma)}
+      ${fld("Expectation — Income Protection","uv_expIncomeProtection",vr.expIncomeProtection)}
+      ${fld("Approach first (insurers)","uv_preferredInsurers",vr.preferredInsurers)}
+      ${fld("Notes","uv_notes",vr.notes,"textarea")}
+    </div>`,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn peach" onclick="saveVarModal('${cid}',${vid?`'${vid}'`:"null"})">Save</button>`);
+}
+function saveVarModal(cid,vid){
+  const c=getCond(cid); if(!c)return;
+  const name=gv("uv_name"); if(!name){ toast("Variant name is required","err"); return; }
+  let vr=vid?getVar(vid):null; const isNew=!vr;
+  if(isNew) vr={id:uid("UV"),outcomes:[]};
+  vr.name=name; vr.severity=gv("uv_severity"); vr.criteria=gv("uv_criteria");
+  vr.expLife=gv("uv_expLife"); vr.expTPD=gv("uv_expTPD"); vr.expTrauma=gv("uv_expTrauma");
+  vr.expIncomeProtection=gv("uv_expIncomeProtection");
+  vr.preferredInsurers=gv("uv_preferredInsurers"); vr.notes=gv("uv_notes");
+  if(isNew){ c.variants.push(vr); LIB.variants.push(vr); }
+  closeModal(); renderCondition(); persist(saveVariantRemote(c,vr));
+}
+async function delVariant(cid,vid){
+  const c=getCond(cid), vr=getVar(vid); if(!c||!vr)return;
+  if(!confirm(`Delete variant "${vr.name}" and its insurer outcomes?`))return;
+  const outs=vr.outcomes.slice();
+  c.variants=c.variants.filter(x=>x.id!==vid); LIB.variants=LIB.variants.filter(x=>x.id!==vid);
+  renderCondition();
+  for(const o of outs){ if(o.spId) await persist(gDelete("outcomes",o.spId)); }
+  if(vr.spId) await persist(gDelete("variants",vr.spId));
+}
 
 /* ===================== DETAIL ===================== */
 function renderDetail(id){
@@ -2320,7 +2670,13 @@ async function resolveGraph(){
     if(!m) throw new Error("List not found: "+GRAPH_CONFIG.lists[key]);
     GRAPH.lists[key] = m.id;
   }
+  LIB_MISSING=[];
+  for(const key of Object.keys(GRAPH_CONFIG.libLists||{})){
+    const m = lists.value.find(l=>l.displayName===GRAPH_CONFIG.libLists[key]);
+    if(m) GRAPH.lists[key]=m.id; else LIB_MISSING.push(GRAPH_CONFIG.libLists[key]);
+  }
 }
+function libReady(){ return LIB_MISSING.length===0 && !!GRAPH.lists.conditions; }
 function listPath(key){ return "/sites/"+encodeURIComponent(GRAPH.siteId)+"/lists/"+GRAPH.lists[key]; }
 
 /* ---- conversions ---- */
@@ -2453,6 +2809,52 @@ async function initData(){
     setSync("error", e.message);
   }
 }
+/* ---- Underwriting Library (conditions → variants → per-insurer outcomes) ---- */
+const UWC_MAP={ category:"Category", aliases:"Aliases", notes:"Notes" };
+const UWV_MAP={ severity:"Severity", criteria:"Criteria", expLife:"ExpectationLife", expTPD:"ExpectationTPD",
+                expTrauma:"ExpectationTrauma", expIncomeProtection:"ExpectationIncomeProtection",
+                preferredInsurers:"PreferredInsurers", notes:"Notes" };
+const UWO_MAP={ insurerName:"InsurerName", notes:"Notes", sourceCaseId:"SourceCaseId" };
+
+function uwcToApp(it){ const f=it.fields||{}, o={id:String(it.id),spId:it.id,name:f.Title||"",variants:[]};
+  for(const k in UWC_MAP) o[k]=f[UWC_MAP[k]]||""; return o; }
+function uwcFields(c){ const o={Title:c.name||"(unnamed)"}; for(const k in UWC_MAP) o[UWC_MAP[k]]=outStr(c[k]); return o; }
+
+function uwvToApp(it){ const f=it.fields||{}, o={id:String(it.id),spId:it.id,name:f.Title||"",conditionSpId:f.ConditionLookupId,outcomes:[]};
+  for(const k in UWV_MAP) o[k]=f[UWV_MAP[k]]||""; return o; }
+function uwvFields(v){ const o={Title:v.name||"(unnamed)"}; for(const k in UWV_MAP) o[UWV_MAP[k]]=outStr(v[k]); return o; }
+
+function uwoToApp(it){ const f=it.fields||{}, o={id:String(it.id),spId:it.id,variantSpId:f.VariantLookupId,
+    lastConfirmed:inDate(f.LastConfirmed),covers:{}};
+  for(const k in UWO_MAP) o[k]=f[UWO_MAP[k]]||"";
+  COVER_KEYS.forEach(k=>{ o.covers[k]={ type:f[k+"Outcome"]||"Not assessed", detail:f[k+"Detail"]||"" }; });
+  return o; }
+function uwoFields(o){
+  const out={ Title:(o.insurerName||"Insurer"), InsurerName:outStr(o.insurerName), Notes:outStr(o.notes),
+              SourceCaseId:outStr(o.sourceCaseId), LastConfirmed:outDate(o.lastConfirmed) };
+  COVER_KEYS.forEach(k=>{ const cv=o.covers[k]||{}; out[k+"Outcome"]=outStr(cv.type); out[k+"Detail"]=outStr(cv.detail); });
+  return out; }
+
+async function loadLibrary(){
+  LIB={conditions:[],variants:[],outcomes:[]};
+  if(!libReady()) return;
+  const [cs,vs,os]=await Promise.all([
+    graphGetAll(listPath("conditions")+"/items?$expand=fields"),
+    graphGetAll(listPath("variants")+"/items?$expand=fields"),
+    graphGetAll(listPath("outcomes")+"/items?$expand=fields")
+  ]);
+  const conds=cs.map(uwcToApp), vars=vs.map(uwvToApp), outs=os.map(uwoToApp);
+  const cById={}; conds.forEach(c=>cById[String(c.spId)]=c);
+  const vById={}; vars.forEach(v=>vById[String(v.spId)]=v);
+  vars.forEach(v=>{ const c=cById[String(v.conditionSpId)]; if(c) c.variants.push(v); });
+  outs.forEach(o=>{ const v=vById[String(o.variantSpId)]; if(v) v.outcomes.push(o); });
+  conds.sort((a,b)=>a.name.localeCompare(b.name));
+  LIB={conditions:conds,variants:vars,outcomes:outs};
+}
+async function saveConditionRemote(c){ if(c.spId){ await gPatch("conditions",c.spId,uwcFields(c)); } else { const it=await gCreate("conditions",uwcFields(c)); c.spId=it.id; } }
+async function saveVariantRemote(c,v){ if(v.spId){ await gPatch("variants",v.spId,uwvFields(v)); } else { const fl=uwvFields(v); fl.ConditionLookupId=Number(c.spId); const it=await gCreate("variants",fl); v.spId=it.id; } }
+async function saveOutcomeRemote(v,o){ if(o.spId){ await gPatch("outcomes",o.spId,uwoFields(o)); } else { const fl=uwoFields(o); fl.VariantLookupId=Number(v.spId); const it=await gCreate("outcomes",fl); o.spId=it.id; } }
+
 async function loadFromGraph(){
   const [subs,his,ios,fhs] = await Promise.all([
     graphGetAll(listPath("submissions")+"/items?$expand=fields"),
@@ -2467,6 +2869,8 @@ async function loadFromGraph(){
   ios.forEach(it=>{ const c=parentOf(it); if(c) c.insurerOutcomes.push(ioToApp(it)); });
   fhs.forEach(it=>{ const c=parentOf(it); if(c) c.familyHistory.push(fhToApp(it)); });
   DB = cases;
+  // Library is optional — never let it block or break the main app.
+  try{ await loadLibrary(); }catch(e){ console.warn("Library load failed:",e.message); LIB={conditions:[],variants:[],outcomes:[]}; }
 }
 
 /* ===================== AUTH GATE ===================== */

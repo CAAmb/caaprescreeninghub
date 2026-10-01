@@ -310,6 +310,31 @@
   .toolsel:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
   body.dark .toolsel:focus{box-shadow:0 0 0 3px rgba(207,227,239,.14)}
 
+  /* library guidance panel on a case */
+  .linkbtn{background:none;border:none;padding:0;font:inherit;font-weight:650;color:var(--navy);cursor:pointer;text-align:left}
+  .linkbtn:hover{text-decoration:underline}
+  .lgblock{border-bottom:1px solid var(--line);padding:10px 0}
+  .lgblock:last-child{border-bottom:none}
+  .lgblock:first-child{padding-top:0}
+  .lghead{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:13.5px;color:var(--navy)}
+  .lgtag{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px}
+  .lgtag.direct{background:#e6f6ee;color:var(--good)}
+  .lgtag.category{background:#fff4e7;color:var(--warn)}
+  .lgtag.none{background:var(--concrete);color:var(--muted)}
+  body.dark .lgtag.direct{background:#14301f;color:#69cf9a}
+  body.dark .lgtag.category{background:#3a2c17;color:#e8b874}
+  body.dark .lgtag.none{background:#1d3140;color:var(--muted)}
+  .lgcond{margin:8px 0 0 2px;padding-left:12px;border-left:3px solid var(--sky)}
+  .lgcondhead{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .lgvar{margin:6px 0 8px;padding:7px 10px;background:var(--surface-2);border-radius:7px}
+  .lgvarhead{font-size:12.5px;font-weight:650;color:var(--navy);display:flex;align-items:center;gap:8px}
+  .lgcrit{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .lgexp{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:12px}
+  .lgexp span b{color:var(--muted);font-weight:600;margin-right:4px;text-transform:uppercase;font-size:10.5px;letter-spacing:.3px}
+  .lgpref{font-size:12px;margin-top:5px;color:var(--ink)}
+  .minicard.clickable{cursor:pointer;transition:transform .06s,box-shadow .12s}
+  .minicard.clickable:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(15,36,51,.14)}
+
   /* ===== Underwriting Library ===== */
   .libnote{background:var(--sky);border-radius:8px;padding:9px 14px;font-size:12.5px;color:var(--onaccent);margin-bottom:14px;line-height:1.5}
   .liblist{display:flex;flex-direction:column;gap:8px}
@@ -863,7 +888,7 @@ let editingCover = null; // {ioId, key} — inline per-cover edit on detail scre
 /* Underwriting Library state */
 let LIB={conditions:[],variants:[],outcomes:[]};
 let LIB_MISSING=[];
-let libCondId=null, libSearch="", libCat="", libSort="name";
+let libCondId=null, libSearch="", libCat="", libSort="name", libView="condition";
 const SEVERITIES=["Mild","Moderate","Severe","Not specified"];
 
 // Client info panels start collapsed; the set tracks which are collapsed (persists across re-renders).
@@ -1008,6 +1033,15 @@ function renderDashboard(){
         <div class="mcstat"><b>${pendingResp}</b> awaiting response</div>
         <div class="mcstat"><b>${avgResp!=null?avgResp+" day"+(avgResp!==1?"s":""):"—"}</b> average turnaround</div>
       </div>
+      ${libReady()?(()=>{
+        const entries=LIB.outcomes.length;
+        const due=LIB.outcomes.filter(o=>{const s=staleInfo(o.lastConfirmed);return s.cls==="stale"||s.cls==="never";}).length;
+        return `<div class="minicard clickable" onclick="showLibrary()"><h3>Underwriting library</h3>
+          <div class="mcstat"><b>${LIB.conditions.length}</b> condition${LIB.conditions.length!==1?"s":""}</div>
+          <div class="mcstat"><b>${entries}</b> insurer entr${entries===1?"y":"ies"}</div>
+          <div class="mcstat">${due?`<b style="color:var(--bad)">${due}</b> need re-confirming`:`<b>0</b> need re-confirming`}</div>
+          <div class="mcstat muted" style="font-size:12px">Open library →</div></div>`;
+      })():""}
       <div class="minicard"><h3>Case complexity</h3>
         <div class="mcstat"><span class="cx cx-Simple">Simple</span> <b>${simple}</b></div>
         <div class="mcstat"><span class="cx cx-Complex">Complex</span> <b>${cplx}</b></div>
@@ -1174,8 +1208,65 @@ function renderLibrary(){
         <option value="name" ${libSort==="name"?"selected":""}>Sort: A–Z</option>
         <option value="stale" ${libSort==="stale"?"selected":""}>Sort: most stale first</option>
       </select></span>
+      <div class="tabs">
+        <button class="${libView==="condition"?"active":""}" onclick="libView='condition';renderLibrary()">By condition</button>
+        <button class="${libView==="insurer"?"active":""}" onclick="libView='insurer';renderLibrary()">By insurer</button>
+      </div>
     </div>
-    <div class="liblist">${rows}</div>`;
+    ${libView==="insurer" ? insurerViewHtml() : `<div class="liblist">${rows}</div>`}`;
+}
+// Insurer-centric view: everything one insurer has told us, so a BDM catch-up or a manual
+// update can be reviewed and re-confirmed in one sitting instead of condition by condition.
+function insurerViewHtml(){
+  const byIns={};
+  LIB.variants.forEach(vr=>{
+    const cd=LIB.conditions.find(c=>c.variants.includes(vr));
+    vr.outcomes.forEach(o=>{
+      const n=(o.insurerName||"").trim()||"(unnamed)";
+      (byIns[n]=byIns[n]||[]).push({o,vr,cd});
+    });
+  });
+  const names=Object.keys(byIns).sort();
+  if(!names.length) return `<div class="empty">No insurer outcomes recorded yet.</div>`;
+  const t=libSearch.toLowerCase();
+  return names.filter(n=>!t||n.toLowerCase().includes(t)||byIns[n].some(x=>((x.cd&&x.cd.name)||"").toLowerCase().includes(t)))
+   .map(n=>{
+    const rows=byIns[n]
+      .filter(x=>!libCat || (x.cd&&x.cd.category===libCat))
+      .sort((a,b)=>staleInfo(b.o.lastConfirmed).days-staleInfo(a.o.lastConfirmed).days);
+    if(!rows.length) return "";
+    const worst=rows.reduce((w,x)=>{const s=staleInfo(x.o.lastConfirmed); return (!w||s.days>w.days)?s:w;},null);
+    const body=rows.map(x=>{
+      const covers=COVER_KEYS.map(k=>{
+        const cv=x.o.covers[k]||{};
+        return `<td style="background:${coverTint(cv.type)}"><b>${esc(cv.type||"Not assessed")}</b>${cv.detail?`<div class="muted">${esc(cv.detail)}</div>`:""}</td>`;
+      }).join("");
+      return `<tr>
+        <td><button class="linkbtn" onclick="showCondition('${x.cd?x.cd.id:""}')">${esc(x.cd?x.cd.name:"—")}</button>
+          <div class="muted">${esc(x.vr.name)}</div></td>
+        ${covers}
+        <td>${staleBadge(staleInfo(x.o.lastConfirmed))}</td>
+      </tr>`;
+    }).join("");
+    return `<div class="section">
+      <div class="shead"><h2>${esc(n)}</h2>${staleBadge(worst)}
+        <span style="flex:1"></span>
+        <span class="muted" style="font-size:12px">${rows.length} entr${rows.length===1?"y":"ies"}</span>
+        <button class="btn ghost sm" onclick="confirmAllForInsurer('${esc(n).replace(/'/g,"\\'")}')">✓ Mark all confirmed today</button>
+      </div>
+      <div class="sbody" style="overflow-x:auto">
+        <table class="grid"><thead><tr><th>Condition / variant</th><th>Life</th><th>TPD</th><th>Trauma</th><th>Income Protection</th><th>Confirmed</th></tr></thead>
+        <tbody>${body}</tbody></table>
+      </div></div>`;
+  }).join("") || `<div class="empty">No insurers match your search.</div>`;
+}
+function confirmAllForInsurer(name){
+  const hits=[];
+  LIB.variants.forEach(vr=>vr.outcomes.forEach(o=>{ if((o.insurerName||"").trim()===name) hits.push({vr,o}); }));
+  if(!hits.length) return;
+  if(!confirm(`Mark all ${hits.length} ${name} entr${hits.length===1?"y":"ies"} as confirmed today?`)) return;
+  hits.forEach(({vr,o})=>{ o.lastConfirmed=todayStr(); persist(saveOutcomeRemote(vr,o)); });
+  renderLibrary(); toast(hits.length+" "+name+" entries confirmed today");
 }
 function libSetupHtml(){
   return `<div class="pagehead"><button class="btn ghost sm" onclick="showDashboard()">← Dashboard</button>
@@ -1271,6 +1362,121 @@ function libOutcomeRow(vr,o){
   </tr>`;
 }
 
+/* ---- Case ↔ Library matching ---- */
+// Match a case health issue to library conditions by name/alias; fall back to same-category
+// suggestions (clearly labelled, since those are a weaker signal).
+function matchConditions(h){
+  const dx=(cleanVal(h.diagnosis)||"").toLowerCase().trim();
+  const cat=cleanVal(h.category);
+  let direct=[];
+  if(dx){
+    direct=LIB.conditions.filter(x=>{
+      const n=(x.name||"").toLowerCase().trim(); if(!n) return false;
+      if(dx===n||dx.includes(n)||n.includes(dx)) return true;
+      return (x.aliases||"").toLowerCase().split(",").map(a=>a.trim()).filter(Boolean)
+        .some(a=>dx===a||dx.includes(a)||a.includes(dx));
+    });
+  }
+  if(direct.length) return {conds:direct,kind:"direct"};
+  const byCat=cat?LIB.conditions.filter(x=>x.category===cat).slice(0,4):[];
+  return {conds:byCat,kind:byCat.length?"category":"none"};
+}
+function expLine(vr){
+  return [["Life",vr.expLife],["TPD",vr.expTPD],["Trauma",vr.expTrauma],["IP",vr.expIncomeProtection]]
+    .filter(([k,v])=>v).map(([k,v])=>`<span><b>${k}</b> ${esc(v)}</span>`).join("");
+}
+// "Library guidance" panel on a case — what we already know about this client's conditions.
+function librarySection(c){
+  if(!libReady()) return "";
+  const issues=c.healthIssues||[];
+  if(!issues.length) return "";
+  const blocks=issues.map(h=>{
+    const dx=cleanVal(h.diagnosis)||"(unnamed condition)";
+    const {conds,kind}=matchConditions(h);
+    if(kind==="none"||!conds.length){
+      return `<div class="lgblock">
+        <div class="lghead"><b>${esc(dx)}</b><span class="lgtag none">No library entry</span>
+          <button class="btn ghost sm" onclick="addConditionFromIssue('${c.id}','${h.id}')">+ Add to library</button></div>
+      </div>`;
+    }
+    const body=conds.map(cd=>{
+      const vars=cd.variants.length? cd.variants.map(vr=>`
+        <div class="lgvar">
+          <div class="lgvarhead">${esc(vr.name)}${vr.severity?`<span class="sev sev-${esc(vr.severity).replace(/\s+/g,"")}">${esc(vr.severity)}</span>`:""}</div>
+          ${vr.criteria?`<div class="lgcrit">${esc(vr.criteria)}</div>`:""}
+          <div class="lgexp">${expLine(vr)||'<span class="muted">No expectation recorded</span>'}</div>
+          ${vr.preferredInsurers?`<div class="lgpref">Approach first: <b>${esc(vr.preferredInsurers)}</b></div>`:""}
+        </div>`).join("")
+        : `<div class="muted" style="font-size:12px;padding:4px 0">No variants recorded yet.</div>`;
+      return `<div class="lgcond">
+        <div class="lgcondhead"><button class="linkbtn" onclick="showCondition('${cd.id}')">${esc(cd.name)} →</button>
+          ${staleBadge(condStale(cd))}</div>
+        ${vars}</div>`;
+    }).join("");
+    return `<div class="lgblock">
+      <div class="lghead"><b>${esc(dx)}</b>
+        <span class="lgtag ${kind}">${kind==="direct"?"Matched":"Same category — check criteria"}</span></div>
+      ${body}</div>`;
+  }).join("");
+  return `<div class="section no-print">
+    <div class="shead"><h2>📚 Library guidance</h2>
+      <span class="muted" style="font-size:12px">what we already know about these conditions</span></div>
+    <div class="sbody">${blocks}</div></div>`;
+}
+function addConditionFromIssue(caseId,hid){
+  const c=getCase(caseId); const h=c&&c.healthIssues.find(x=>x.id===hid); if(!h)return;
+  openCondModal(null,{name:cleanVal(h.diagnosis)||"",category:cleanVal(h.category)||""});
+}
+function lookupInLibrary(caseId,hid){
+  const c=getCase(caseId); const h=c&&c.healthIssues.find(x=>x.id===hid); if(!h)return;
+  if(!libReady()){ toast("Library lists not set up yet","err"); return; }
+  const {conds,kind}=matchConditions(h);
+  if(kind==="direct"&&conds.length===1){ showCondition(conds[0].id); return; }
+  libSearch=cleanVal(h.diagnosis)||""; libCat=""; showLibrary();
+}
+
+/* ---- Promote a case outcome into the library ---- */
+function openPromoteModal(caseId,ioId){
+  if(!libReady()){ toast("Library lists not set up yet","err"); return; }
+  if(!LIB.conditions.length){ toast("Add a condition to the library first","err"); return; }
+  const c=getCase(caseId), io=c&&c.insurerOutcomes.find(x=>x.id===ioId); if(!io)return;
+  const condOpts=LIB.conditions.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  openModal("Save to library — "+esc(io.insurerName||"insurer"),
+    `<p class="muted" style="font-size:12.5px;line-height:1.5;margin:0 0 10px">
+       Copies this insurer's outcomes into the library against the condition they relate to, with a link back to case #${esc(c.id)}.</p>
+     <div class="field"><label>Condition</label><select id="pm_cond" onchange="fillPromoteVariants()">${condOpts}</select></div>
+     <div class="field"><label>Variant</label><select id="pm_var"></select></div>`,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn peach" onclick="doPromote('${caseId}','${ioId}')">Save to library</button>`);
+  fillPromoteVariants();
+}
+function fillPromoteVariants(){
+  const cd=getCond(gv("pm_cond")); const sel=document.getElementById("pm_var"); if(!sel)return;
+  sel.innerHTML = (cd&&cd.variants.length)
+    ? cd.variants.map(v=>`<option value="${v.id}">${esc(v.name)}</option>`).join("")
+    : `<option value="">(no variants — add one first)</option>`;
+}
+function doPromote(caseId,ioId){
+  const c=getCase(caseId), io=c&&c.insurerOutcomes.find(x=>x.id===ioId);
+  const vr=getVar(gv("pm_var"));
+  if(!vr){ toast("That condition has no variants yet — add one first","err"); return; }
+  const name=(io.insurerName||"").trim();
+  let row=vr.outcomes.find(o=>(o.insurerName||"").trim().toLowerCase()===name.toLowerCase());
+  const isNew=!row;
+  if(isNew){ row={id:uid("UO"),insurerName:name,notes:"",sourceCaseId:"",covers:{}}; COVER_KEYS.forEach(k=>row.covers[k]={type:"Not assessed",detail:""}); }
+  COVER_KEYS.forEach(k=>{
+    const cv=io.covers[k]||{};
+    row.covers[k]={ type:cv.type||"Not assessed", detail:cleanVal(coverDetailText(cv)) };
+  });
+  row.lastConfirmed = cleanVal(io.dateReceived) || todayStr();
+  row.sourceCaseId = String(c.id);
+  if(cleanVal(io.notes)) row.notes = cleanVal(io.notes);
+  if(isNew){ vr.outcomes.push(row); LIB.outcomes.push(row); }
+  closeModal();
+  toast((isNew?"Added ":"Updated ")+name+" in "+vr.name);
+  persist(saveOutcomeRemote(vr,row));
+}
+
 /* ---- Library CRUD ---- */
 function setLibOutcome(vid,oid,field,val){
   const vr=getVar(vid); if(!vr)return; const o=vr.outcomes.find(x=>x.id===oid); if(!o)return;
@@ -1298,8 +1504,8 @@ async function delLibOutcome(vid,oid){
   vr.outcomes=vr.outcomes.filter(x=>x.id!==oid); LIB.outcomes=LIB.outcomes.filter(x=>x.id!==oid);
   renderCondition(); if(o&&o.spId) await persist(gDelete("outcomes",o.spId));
 }
-function openCondModal(id){
-  const c=id?getCond(id):{name:"",category:"",aliases:"",notes:""};
+function openCondModal(id,prefill){
+  const c=id?getCond(id):Object.assign({name:"",category:"",aliases:"",notes:""},prefill||{});
   openModal(id?"Edit condition":"New condition",
     `<div class="formgrid">
       ${fld("Condition name","uc_name",c.name)}
@@ -1444,6 +1650,7 @@ function renderDetail(id){
     </div>
 
     ${healthSection(c)}
+    ${librarySection(c)}
     ${familySection(c)}
     ${insurerSection(c)}
   `;
@@ -2166,6 +2373,7 @@ function healthSection(c){
       <td class="hnotes"><textarea class="hnotebox" placeholder="Assessor notes…" oninput="autoGrow(this)"
         onchange="setHealthField('${c.id}','${h.id}','assessorNotes',this.value)">${esc(h.assessorNotes||"")}</textarea></td>
       <td class="no-print"><div class="rowact">
+        <button class="icnbtn" title="Look up in the underwriting library" onclick="lookupInLibrary('${c.id}','${h.id}')">📚</button>
         <button class="icnbtn" onclick="openHealthModal('${c.id}','${h.id}')">Edit</button>
         <button class="icnbtn" onclick="delHealth('${c.id}','${h.id}')">Del</button>
       </div></td>
@@ -2310,7 +2518,10 @@ function insurerSection(c){
       ${coverCell(c.id,io.id,'Trauma',io.covers.Trauma)}
       ${coverCell(c.id,io.id,'IncomeProtection',io.covers.IncomeProtection)}
       <td class="notes"><textarea class="notes" placeholder="Notes…" oninput="autoGrow(this)" onchange="setInsurerField('${c.id}','${io.id}','notes',this.value)">${esc(io.notes)}</textarea></td>
-      <td class="no-print"><button class="icnbtn" onclick="delInsurer('${c.id}','${io.id}')">Del</button></td>
+      <td class="no-print"><div class="rowact">
+        <button class="icnbtn" title="Save these outcomes to the underwriting library" onclick="openPromoteModal('${c.id}','${io.id}')">📚</button>
+        <button class="icnbtn" onclick="delInsurer('${c.id}','${io.id}')">Del</button>
+      </div></td>
     </tr>`;
   }).join("");
   const body = c.insurerOutcomes.length

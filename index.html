@@ -404,6 +404,12 @@
   .condnotes{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 16px;
     font-size:13px;line-height:1.6;color:var(--ink);margin-bottom:16px;white-space:pre-wrap}
   .varcard .shead{flex-wrap:wrap}
+  .varcard .vartoggle{cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none}
+  .varcard .vartoggle:hover{opacity:.75}
+  .varcard .vartoggle .chev{font-size:11px;color:var(--muted);transition:transform .15s}
+  .varcard.collapsed .vartoggle .chev{transform:rotate(-90deg)}
+  .varcard.collapsed .sbody{display:none}
+  .varcard .varsum{font-size:11.5px;color:var(--muted);font-style:italic}
   .sev{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:5px;text-transform:uppercase;letter-spacing:.3px}
   .sev-Mild{background:#e6f6ee;color:var(--good)}
   .sev-Moderate{background:#fff4e7;color:var(--warn)}
@@ -948,6 +954,7 @@ let editingCover = null; // {ioId, key} — inline per-cover edit on detail scre
 let LIB={conditions:[],variants:[],outcomes:[]};
 let LIB_MISSING=[];
 let libCondId=null, libSearch="", libCat="", libSort="name", libView="condition";
+const collapsedVariants=new Set();   // variant ids collapsed by the user (persists across re-renders)
 const SEVERITIES=["Mild","Moderate","Severe","Not specified"];
 
 // Client info panels start collapsed; the set tracks which are collapsed (persists across re-renders).
@@ -1354,6 +1361,7 @@ function renderCondition(){
       <h1 class="pagetitle">${esc(c.name)}</h1>
       <button class="btn ghost sm" onclick="openCondModal('${c.id}')">Edit</button>
       <button class="btn danger sm" onclick="delCondition('${c.id}')">🗑 Delete</button>
+      ${c.variants.length>1?`<button class="btn ghost sm" id="varToggleBtn" onclick="toggleAllVariants()">${c.variants.some(v=>!collapsedVariants.has(v.id))?"⊟ Collapse all":"⊞ Expand all"}</button>`:""}
       <button class="btn peach sm" onclick="openVarModal('${c.id}')">+ Add variant</button></div>
     <div class="condhead">
       ${c.category?`<span class="chip cat">${esc(c.category)}</span>`:""}
@@ -1376,10 +1384,13 @@ function variantCard(c,vr){
       <b>${p.type?esc(p.type):(p.detail?"":"—")}</b>
       ${p.detail?`<i>${esc(p.detail)}</i>`:""}</div>`;
   }).join("");
-  return `<div class="section varcard">
+  const ins=new Set(vr.outcomes.map(o=>(o.insurerName||"").trim()).filter(Boolean));
+  const collapsed=collapsedVariants.has(vr.id)?" collapsed":"";
+  return `<div class="section varcard${collapsed}">
     <div class="shead">
-      <h2>${esc(vr.name)}</h2>
+      <h2 class="vartoggle" onclick="toggleVariant('${vr.id}')"><span class="chev">▾</span>${esc(vr.name)}</h2>
       ${vr.severity?`<span class="sev sev-${esc(vr.severity).replace(/\s+/g,"")}">${esc(vr.severity)}</span>`:""}
+      <span class="varsum">${ins.size} insurer${ins.size!==1?"s":""}</span>
       <span style="flex:1"></span>
       <button class="btn ghost sm" onclick="openVarModal('${c.id}','${vr.id}')">Edit</button>
       <button class="btn ghost sm" onclick="delVariant('${c.id}','${vr.id}')">Del</button>
@@ -1505,15 +1516,19 @@ function missingInsurers(vr){
   const have=new Set(vr.outcomes.map(o=>(o.insurerName||"").trim().toLowerCase()));
   return insList(vr.preferredInsurers).filter(n=>!have.has(n.toLowerCase()));
 }
-function addMissingOutcomes(vid){
-  const vr=getVar(vid); if(!vr)return;
-  const miss=missingInsurers(vr); if(!miss.length)return;
+// Create an empty evidence row for every ticked insurer that doesn't have one yet.
+// Unticking never removes a row — that would throw away recorded evidence.
+function addMissingOutcomes(vid,quiet){
+  const vr=getVar(vid); if(!vr)return 0;
+  const miss=missingInsurers(vr); if(!miss.length)return 0;
   miss.forEach(n=>{
     const o={id:uid("UO"),insurerName:n,notes:"",sourceCaseId:"",lastConfirmed:"",covers:{}};
     COVER_KEYS.forEach(k=>o.covers[k]={type:"Not assessed",detail:""});
     vr.outcomes.push(o); LIB.outcomes.push(o); persist(saveOutcomeRemote(vr,o));
   });
-  renderCondition(); toast(miss.length+" insurer row"+(miss.length!==1?"s":"")+" added");
+  renderCondition();
+  if(!quiet) toast(miss.length+" insurer row"+(miss.length!==1?"s":"")+" added");
+  return miss.length;
 }
 function expLine(vr){
   return [["Life","Life"],["TPD","TPD"],["Trauma","Trauma"],["IncomeProtection","IP"]]
@@ -1757,7 +1772,7 @@ function openVarModal(cid,vid){
     `<button class="btn ghost" onclick="closeModal()">Cancel</button>
      <button class="btn peach" onclick="saveVarModal('${cid}',${vid?`'${vid}'`:"null"})">Save</button>`);
 }
-function saveVarModal(cid,vid){
+async function saveVarModal(cid,vid){
   const c=getCond(cid); if(!c)return;
   const name=gv("uv_name"); if(!name){ toast("Variant name is required","err"); return; }
   let vr=vid?getVar(vid):null; const isNew=!vr;
@@ -1766,7 +1781,21 @@ function saveVarModal(cid,vid){
   COVER_TYPES.forEach(([k])=>{ vr["exp"+k]=fmtExp(gv("uv_exp"+k+"_type"),gv("uv_exp"+k+"_detail")); });
   vr.preferredInsurers=selectedInsurers(); vr.notes=gv("uv_notes");
   if(isNew){ c.variants.push(vr); LIB.variants.push(vr); }
-  closeModal(); renderCondition(); persist(saveVariantRemote(c,vr));
+  closeModal(); renderCondition();
+  // await the variant write first — a new variant needs its spId before outcomes can link to it
+  await persist(saveVariantRemote(c,vr));
+  const added=addMissingOutcomes(vr.id,true);
+  if(added) toast(added+" insurer row"+(added!==1?"s":"")+" ready to fill in");
+}
+function toggleVariant(vid){
+  if(collapsedVariants.has(vid)) collapsedVariants.delete(vid); else collapsedVariants.add(vid);
+  renderCondition();
+}
+function toggleAllVariants(){
+  const c=getCond(libCondId); if(!c)return;
+  const anyOpen=c.variants.some(v=>!collapsedVariants.has(v.id));
+  c.variants.forEach(v=>{ if(anyOpen) collapsedVariants.add(v.id); else collapsedVariants.delete(v.id); });
+  renderCondition();
 }
 async function delVariant(cid,vid){
   const c=getCond(cid), vr=getVar(vid); if(!c||!vr)return;

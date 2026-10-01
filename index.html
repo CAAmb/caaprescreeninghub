@@ -310,13 +310,32 @@
   .toolsel:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(15,36,51,.08)}
   body.dark .toolsel:focus{box-shadow:0 0 0 3px rgba(207,227,239,.14)}
 
-  /* insurer multi-select in the variant form */
-  .inspickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px;
-    border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);max-height:190px;overflow-y:auto}
-  .inschk{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:6px;cursor:pointer;font-size:12.5px}
-  .inschk:hover{background:var(--sky)}
-  .inschk input{width:15px;height:15px;accent-color:var(--bar);flex:0 0 auto;margin:0}
-  .fieldhint{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.45}
+  /* insurer multi-select in the variant form — selectable chips.
+     Selectors are scoped tighter than `.field label` or that rule's display:block wins. */
+  .inspickbar{display:flex;gap:6px;margin-bottom:7px}
+  .inspickgrid{display:flex;flex-wrap:wrap;gap:7px;border:1px solid var(--line);border-radius:9px;
+    padding:10px;background:var(--surface-2);max-height:210px;overflow-y:auto}
+  .inspickgrid .inschk{display:inline-flex!important;align-items:center;gap:7px;margin:0;padding:6px 13px 6px 9px;
+    border:1px solid var(--line);border-radius:20px;background:var(--surface);cursor:pointer;
+    font-size:12.5px;font-weight:600;color:var(--muted);user-select:none;transition:background .12s,border-color .12s,color .12s}
+  .inspickgrid .inschk:hover{border-color:var(--navy);color:var(--navy)}
+  .inspickgrid .inschk input{position:absolute;opacity:0;width:0;height:0;margin:0;pointer-events:none}
+  .inspickgrid .inschk .tick{width:15px;height:15px;flex:0 0 auto;border:1.5px solid var(--line);border-radius:5px;
+    display:inline-flex;align-items:center;justify-content:center;font-size:10px;line-height:1;color:transparent;transition:all .12s}
+  .inspickgrid .inschk:has(input:checked){background:var(--sky);border-color:var(--bar);color:var(--navy)}
+  .inspickgrid .inschk:has(input:checked) .tick{background:var(--bar);border-color:var(--bar);color:#fff}
+  .inspickgrid .inschk:focus-within{box-shadow:0 0 0 3px rgba(15,36,51,.12)}
+  .fieldhint{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45}
+
+  /* structured expectation rows in the variant form */
+  .expform{display:flex;flex-direction:column;gap:7px;border:1px solid var(--line);border-radius:9px;
+    padding:10px;background:var(--surface-2)}
+  .exprow{display:grid;grid-template-columns:118px minmax(0,1fr) minmax(0,1.3fr);gap:8px;align-items:center}
+  .exprow .explbl{font-size:12px;font-weight:700;color:var(--navy)}
+  .exprow select,.exprow input{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;
+    font-size:12.5px;font-family:inherit;background:var(--surface);color:var(--ink)}
+  .exprow select:focus,.exprow input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 2px rgba(15,36,51,.1)}
+  @media(max-width:620px){ .exprow{grid-template-columns:1fr} }
   .chip.ins{background:var(--sky);color:var(--onaccent);font-weight:650}
   .preflabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);font-weight:700;margin-right:2px}
   .prefins{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
@@ -403,6 +422,8 @@
   .expcell{background:var(--surface);border-radius:6px;padding:7px 9px;min-width:0}
   .expcell span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
   .expcell b{display:block;font-size:12.5px;color:var(--navy);margin-top:2px;word-break:break-word}
+  .expcell i{display:block;font-size:11.5px;color:var(--muted);font-style:normal;margin-top:1px;word-break:break-word}
+  .lgexp span i{font-style:normal;color:var(--muted)}
   .prefins{margin-top:8px;font-size:12.5px;color:var(--onaccent)}
   .varnotes{font-size:12.5px;line-height:1.6;color:var(--muted);margin-bottom:12px;white-space:pre-wrap}
   .libtbl td.confcell{min-width:132px}
@@ -1348,8 +1369,13 @@ function renderCondition(){
 function variantCard(c,vr){
   const rows=vr.outcomes.map(o=>libOutcomeRow(vr,o)).join("")
     || `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center">No insurer outcomes recorded yet.</td></tr>`;
-  const exp=[["Life",vr.expLife],["TPD",vr.expTPD],["Trauma",vr.expTrauma],["Income Protection",vr.expIncomeProtection]]
-    .map(([k,val])=>`<div class="expcell"><span>${k}</span><b>${val?esc(val):"—"}</b></div>`).join("");
+  const exp=COVER_TYPES.map(([k,label])=>{
+    const p=parseExp(vr["exp"+k]);
+    const tint=p.type?coverTint(p.type):"";
+    return `<div class="expcell"${tint?` style="background:${tint}"`:""}><span>${label}</span>
+      <b>${p.type?esc(p.type):(p.detail?"":"—")}</b>
+      ${p.detail?`<i>${esc(p.detail)}</i>`:""}</div>`;
+  }).join("");
   return `<div class="section varcard">
     <div class="shead">
       <h2>${esc(vr.name)}</h2>
@@ -1423,6 +1449,41 @@ function matchConditions(h){
   const byCat=cat?LIB.conditions.filter(x=>x.category===cat).slice(0,4):[];
   return {conds:byCat,kind:byCat.length?"category":"none"};
 }
+/* ---- Structured expectations ------------------------------------------------
+   Stored in the existing Expectation* text columns as "Type — detail" (e.g.
+   "Loading % — 25-50%") so no new SharePoint columns are needed and the value
+   still reads cleanly in the list. Anything that doesn't start with a known
+   outcome is treated as legacy free text and kept as the detail.           */
+const EXP_SEP=" — ";
+function parseExp(s){
+  const str=String(s||"").trim();
+  if(!str) return {type:"",detail:""};
+  const i=str.indexOf(EXP_SEP);
+  if(i>-1){
+    const t=str.slice(0,i).trim(), d=str.slice(i+EXP_SEP.length).trim();
+    if(COVER_OUTCOMES.includes(t)) return {type:t,detail:d};
+  }
+  if(COVER_OUTCOMES.includes(str)) return {type:str,detail:""};
+  return {type:"",detail:str};
+}
+function fmtExp(type,detail){
+  const t=(type||"").trim(), d=(detail||"").trim();
+  if(!t) return d;
+  return d ? t+EXP_SEP+d : t;
+}
+function expPickHtml(vr){
+  return `<div class="field full"><label>Our expectation</label>
+    <div class="expform">${COVER_TYPES.map(([k,label])=>{
+      const p=parseExp(vr["exp"+k]);
+      return `<div class="exprow">
+        <span class="explbl">${esc(label)}</span>
+        <select id="uv_exp${k}_type">${["",...COVER_OUTCOMES].map(x=>`<option ${x===p.type?"selected":""}>${esc(x)}</option>`).join("")}</select>
+        <input id="uv_exp${k}_detail" value="${esc(p.detail)}" placeholder="detail — e.g. 50%, $3 per mille, or a range">
+      </div>`;
+    }).join("")}</div>
+    <div class="fieldhint">A range is fine in the detail box — "25–50% depending on severity" is often more honest than a single figure.</div></div>`;
+}
+
 /* ---- "Expectation applies to" insurer selection (stored comma-separated in PreferredInsurers) ---- */
 function insList(str){ return String(str||"").split(",").map(s=>s.trim()).filter(Boolean); }
 function insChips(str){ return insList(str).map(n=>`<span class="chip ins">${esc(n)}</span>`).join(""); }
@@ -1430,8 +1491,12 @@ function insurerPickHtml(selected){
   const sel=insList(selected);
   const all=INSURERS.concat(sel.filter(x=>!INSURERS.includes(x)));   // keep any legacy free-text names
   return `<div class="field full"><label>Expectation applies to</label>
+    <div class="inspickbar">
+      <button type="button" class="btn ghost sm" onclick="document.querySelectorAll('.varIns').forEach(x=>x.checked=true)">Select all</button>
+      <button type="button" class="btn ghost sm" onclick="document.querySelectorAll('.varIns').forEach(x=>x.checked=false)">Clear</button>
+    </div>
     <div class="inspickgrid">${all.map(n=>`<label class="inschk">
-      <input type="checkbox" class="varIns" value="${esc(n)}" ${sel.includes(n)?"checked":""}><span>${esc(n)}</span></label>`).join("")}</div>
+      <input type="checkbox" class="varIns" value="${esc(n)}" ${sel.includes(n)?"checked":""}><span class="tick">✓</span><span class="inm">${esc(n)}</span></label>`).join("")}</div>
     <div class="fieldhint">Tick the insurers this expectation is based on. Any ticked insurer without a recorded outcome is flagged on the variant.</div></div>`;
 }
 function selectedInsurers(){ return [].map.call(document.querySelectorAll(".varIns:checked"),x=>x.value).join(", "); }
@@ -1451,8 +1516,10 @@ function addMissingOutcomes(vid){
   renderCondition(); toast(miss.length+" insurer row"+(miss.length!==1?"s":"")+" added");
 }
 function expLine(vr){
-  return [["Life",vr.expLife],["TPD",vr.expTPD],["Trauma",vr.expTrauma],["IP",vr.expIncomeProtection]]
-    .filter(([k,v])=>v).map(([k,v])=>`<span><b>${k}</b> ${esc(v)}</span>`).join("");
+  return [["Life","Life"],["TPD","TPD"],["Trauma","Trauma"],["IncomeProtection","IP"]]
+    .map(([k,label])=>({label,p:parseExp(vr["exp"+k])}))
+    .filter(x=>x.p.type||x.p.detail)
+    .map(x=>`<span><b>${x.label}</b> ${esc(x.p.type||"")}${x.p.detail?` <i>${esc(x.p.detail)}</i>`:""}</span>`).join("");
 }
 // "Library guidance" panel on a case — what we already know about this client's conditions.
 function librarySection(c){
@@ -1683,10 +1750,7 @@ function openVarModal(cid,vid){
       ${fld("Variant name","uv_name",vr.name)}
       ${fld("Severity","uv_severity",vr.severity,"select",SEVERITIES)}
       ${fld("Applies when (criteria)","uv_criteria",vr.criteria,"textarea")}
-      ${fld("Expectation — Life","uv_expLife",vr.expLife)}
-      ${fld("Expectation — TPD","uv_expTPD",vr.expTPD)}
-      ${fld("Expectation — Trauma","uv_expTrauma",vr.expTrauma)}
-      ${fld("Expectation — Income Protection","uv_expIncomeProtection",vr.expIncomeProtection)}
+      ${expPickHtml(vr)}
       ${insurerPickHtml(vr.preferredInsurers)}
       ${fld("Notes","uv_notes",vr.notes,"textarea")}
     </div>`,
@@ -1699,8 +1763,7 @@ function saveVarModal(cid,vid){
   let vr=vid?getVar(vid):null; const isNew=!vr;
   if(isNew) vr={id:uid("UV"),outcomes:[]};
   vr.name=name; vr.severity=gv("uv_severity"); vr.criteria=gv("uv_criteria");
-  vr.expLife=gv("uv_expLife"); vr.expTPD=gv("uv_expTPD"); vr.expTrauma=gv("uv_expTrauma");
-  vr.expIncomeProtection=gv("uv_expIncomeProtection");
+  COVER_TYPES.forEach(([k])=>{ vr["exp"+k]=fmtExp(gv("uv_exp"+k+"_type"),gv("uv_exp"+k+"_detail")); });
   vr.preferredInsurers=selectedInsurers(); vr.notes=gv("uv_notes");
   if(isNew){ c.variants.push(vr); LIB.variants.push(vr); }
   closeModal(); renderCondition(); persist(saveVariantRemote(c,vr));

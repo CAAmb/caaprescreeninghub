@@ -33,6 +33,7 @@
     --rowwait:#fdf0e3;      /* awaiting further info */
     --onaccent:var(--navy); /* text sitting on --sky fills */
     --bar:#0f2433;          /* navy bars: header, table heads, primary buttons */
+    --onpeach:#0f2433;      /* text on accent (peach) buttons — stays dark in both modes */
   }
   /* ===== Dark mode ===== */
   body.dark{
@@ -154,7 +155,7 @@
   .btn:hover{filter:brightness(1.12)}
   .btn.ghost{background:var(--surface);color:var(--navy)}
   .btn.ghost:hover{background:var(--sky);filter:none}
-  .btn.peach{background:var(--peach);border-color:var(--peach);color:var(--navy)}
+  .btn.peach{background:var(--peach);border-color:var(--peach);color:var(--onpeach)}
   .btn.sm{padding:6px 10px;font-size:12.5px;border-radius:7px}
   .btn.danger{background:var(--surface);color:var(--bad);border-color:var(--bad)}
   .btn.danger:hover{background:#fbe9e6;filter:none}
@@ -176,7 +177,50 @@
   /* dashboard */
   .pagehead{display:flex;align-items:center;gap:16px;margin-bottom:18px}
   .pagehead .pagetitle{font-size:22px;font-weight:700;color:var(--navy);flex:1;margin:0}
-  .dashrow{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+  .dashrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-bottom:20px}
+  .statsub{font-size:11.5px;color:var(--muted);margin-top:5px;font-weight:600}
+  .mcreasons{display:flex;flex-direction:column;gap:3px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--muted)}
+  .mcreasons b{color:var(--navy);margin-left:4px}
+  /* colour theme picker */
+  .accentrow{display:flex;gap:14px;align-items:stretch;margin-bottom:14px;flex-wrap:wrap}
+  .wheelwrap{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;
+    padding:10px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);font-size:12px;font-weight:600;color:var(--navy)}
+  .wheelwrap input[type=color]{width:64px;height:64px;border:none;border-radius:50%;padding:0;cursor:pointer;background:none}
+  .wheelwrap input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+  .wheelwrap input[type=color]::-webkit-color-swatch{border:3px solid var(--surface);border-radius:50%;box-shadow:0 0 0 1px var(--line)}
+  .wheelwrap input[type=color]::-moz-color-swatch{border:3px solid var(--surface);border-radius:50%}
+  .accentpreview{flex:1;min-width:200px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+  .apbar{background:var(--bar);color:#fff;padding:10px 14px;font-size:13px;font-weight:650;border-bottom:3px solid var(--peach)}
+  .apbody{display:flex;align-items:center;gap:10px;padding:12px 14px;flex-wrap:wrap}
+  .apchip{background:var(--sky);color:var(--onaccent);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px}
+  .apbtn{background:var(--peach);color:var(--onpeach);font-size:12px;font-weight:700;padding:5px 12px;border-radius:7px}
+  .apbody b{color:var(--navy);font-size:14px}
+  .swatchgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+  .swatch{display:flex;flex-direction:column;align-items:center;gap:5px;padding:8px 4px;border:1px solid var(--line);
+    border-radius:9px;background:var(--surface);cursor:pointer;font-family:inherit;font-size:11.5px;font-weight:600;color:var(--muted)}
+  .swatch:hover{border-color:var(--navy);color:var(--navy)}
+  .swatch.on{border-color:var(--bar);box-shadow:0 0 0 2px var(--bar);color:var(--navy)}
+  .swatch i{width:26px;height:26px;border-radius:50%;display:block;box-shadow:inset 0 0 0 2px rgba(255,255,255,.25)}
+  @media(max-width:520px){ .swatchgrid{grid-template-columns:repeat(3,1fr)} }
+
+  /* on hold — slate grey ("paused"). Fixed status colour: not affected by the user's theme,
+     and kept clear of the outcome colours (green/amber/red) and every theme preset hue. */
+  :root{--hold-bg:#eef1f4;--hold-soft:#f4f6f8;--hold-line:#cfd6dd;--hold-ink:#3c4752;--hold-strong:#2b343d;--hold-mark:#64717e;--hold-btn:#515d69}
+  body.dark{--hold-bg:#232b33;--hold-soft:#1d242b;--hold-line:#36414c;--hold-ink:#b6c1cb;--hold-strong:#d6dee5;--hold-mark:#8794a1;--hold-btn:#4a5662}
+  .holdchip{display:inline-block;vertical-align:middle;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;
+    background:var(--hold-bg);color:var(--hold-ink);border:1px solid var(--hold-line);text-transform:none;letter-spacing:0}
+  .casecard.onhold{border-left:4px solid var(--hold-mark)}
+  .holdline{margin-top:6px;font-size:12.5px;color:var(--hold-ink);background:var(--hold-soft);border:1px solid var(--hold-line);
+    border-radius:6px;padding:5px 9px;display:inline-block}
+  .holdbanner{display:flex;align-items:center;gap:14px;background:var(--hold-soft);border:1px solid var(--hold-line);
+    border-left:4px solid var(--hold-mark);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px}
+  .holdbanner .hbicon{font-size:20px;color:var(--hold-mark)}
+  .holdbanner .hbmain{flex:1;font-size:13px;color:var(--ink);line-height:1.5}
+  .holdbanner .hbmain b{color:var(--hold-strong);font-size:14px}
+  .holdbanner .hbmeta{font-size:12px;color:var(--muted);margin-top:2px}
+  .btn.holdbtn{background:var(--surface);color:var(--hold-ink);border-color:var(--hold-line)}
+  .btn.holdbtn:hover{background:var(--hold-soft)}
+  .btn.holdbtn.on{background:var(--hold-btn);color:#fff;border-color:var(--hold-btn)}
   .minicard{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 18px}
   .minicard h3{font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 10px;font-weight:600}
   .minicard .mcstat{font-size:14px;color:var(--ink);padding:4px 0;display:flex;align-items:center;gap:8px}
@@ -682,7 +726,8 @@
   <div class="spacer"></div>
   <div class="crumb" id="crumb"></div>
   <span class="syncstat" id="syncStatus"></span>
-  <button class="btn ghost sm" style="margin-left:14px" id="themeBtn" onclick="toggleTheme()" title="Toggle dark mode">🌙</button>
+  <button class="btn ghost sm" style="margin-left:14px" onclick="openAccentModal()" title="Colour theme">🎨</button>
+  <button class="btn ghost sm" style="margin-left:8px" id="themeBtn" onclick="toggleTheme()" title="Toggle dark mode">🌙</button>
   <button class="btn ghost sm" style="margin-left:8px" onclick="runConnectionTest()">⚙ Test SharePoint</button>
   <div class="userchip" id="userChip"></div>
 </header>
@@ -1060,6 +1105,20 @@ function renderDashboard(){
   const complete=DB.filter(c=>c.status==="Complete").length;
   const doneDays=DB.filter(c=>c.status==="Complete").map(daysToComplete).filter(n=>n!=null);
   const avgDays=doneDays.length?Math.round(doneDays.reduce((a,b)=>a+b,0)/doneDays.length):null;
+  const actDays=DB.filter(c=>c.status==="Complete").map(activeDays).filter(n=>n!=null);
+  const avgActive=actDays.length?Math.round(actDays.reduce((a,b)=>a+b,0)/actDays.length):null;
+
+  // on-hold analytics — completed holds give the true "how long are cases held" figure
+  const onHoldNow=DB.filter(c=>c.status!=="Complete"&&isOnHold(c));
+  const doneHolds=DB.flatMap(c=>(c.holds||[]).map(h=>daysBetween(h.start,h.end)||0));
+  const avgHold=doneHolds.length?Math.round(doneHolds.reduce((a,b)=>a+b,0)/doneHolds.length):null;
+  const longest=onHoldNow.reduce((m,c)=>{ const d=currentHoldDays(c); return (!m||d>m.d)?{c,d}:m; },null);
+  const reasonTally={};
+  DB.forEach(c=>{
+    (c.holds||[]).forEach(h=>{ if(h.reason) reasonTally[h.reason]=(reasonTally[h.reason]||0)+1; });
+    if(isOnHold(c)&&c.onHoldReason) reasonTally[c.onHoldReason]=(reasonTally[c.onHoldReason]||0)+1;
+  });
+  const topReasons=Object.entries(reasonTally).sort((a,b)=>b[1]-a[1]).slice(0,3);
 
   // insurer response analytics
   const outcomes=DB.flatMap(c=>c.insurerOutcomes||[]);
@@ -1088,9 +1147,11 @@ function renderDashboard(){
       <button class="btn peach" onclick="openCaseModal()">+ New Case</button></div>
     <div class="stats">
       <div class="stat"><div class="num">${total}</div><div class="lbl">Total cases</div></div>
-      <div class="stat clickable" onclick="showCases('In Progress')"><div class="num">${inProg}</div><div class="lbl">In progress →</div></div>
+      <div class="stat clickable" onclick="showCases('In Progress')"><div class="num">${inProg}</div><div class="lbl">In progress →</div>
+        ${onHoldNow.length?`<div class="statsub">⏸ ${onHoldNow.length} on hold</div>`:""}</div>
       <div class="stat clickable" onclick="showCases('Complete')"><div class="num">${complete}</div><div class="lbl">Complete →</div></div>
-      <div class="stat"><div class="num">${avgDays!=null?avgDays:"—"}</div><div class="lbl">Avg days to complete</div></div>
+      <div class="stat"><div class="num">${avgDays!=null?avgDays:"—"}</div><div class="lbl">Avg days to complete</div>
+        ${avgActive!=null&&avgActive!==avgDays?`<div class="statsub">${avgActive} active (excl. hold)</div>`:""}</div>
       <div class="stat"><div class="num">${avgResp!=null?avgResp:"—"}</div><div class="lbl">Avg insurer response (days)</div></div>
     </div>
     <div class="dashrow">
@@ -1108,6 +1169,12 @@ function renderDashboard(){
           <div class="mcstat">${due?`<b style="color:var(--bad)">${due}</b> need re-confirming`:`<b>0</b> need re-confirming`}</div>
           <div class="mcstat muted" style="font-size:12px">Open library →</div></div>`;
       })():""}
+      <div class="minicard${onHoldNow.length?" clickable":""}" ${onHoldNow.length?`onclick="showCases('In Progress')"`:""}><h3>On hold</h3>
+        <div class="mcstat"><b>${onHoldNow.length}</b> on hold now</div>
+        <div class="mcstat"><b>${avgHold!=null?avgHold+" day"+(avgHold!==1?"s":""):"—"}</b> average hold</div>
+        <div class="mcstat">${longest?`<b>${longest.d} day${longest.d!==1?"s":""}</b> longest current (${esc((longest.c.fullName||"").split(" ")[0])})`:`<b>—</b> longest current`}</div>
+        ${topReasons.length?`<div class="mcreasons">${topReasons.map(([r,n])=>`<span>${esc(r)} <b>${n}</b></span>`).join("")}</div>`:""}
+      </div>
       <div class="minicard"><h3>Case complexity</h3>
         <div class="mcstat"><span class="cx cx-Simple">Simple</span> <b>${simple}</b></div>
         <div class="mcstat"><span class="cx cx-Complex">Complex</span> <b>${cplx}</b></div>
@@ -1145,12 +1212,14 @@ function renderCases(){
     const days=daysToComplete(c);
     const dateLine = `Pre-screening completed: <b>${c.preScreeningDate||"—"}</b>`
       + (c.status==="Complete" && days!=null ? ` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b> · <b class="daysbadge">${days} day${days!==1?"s":""} to complete</b>` : "");
-    return `<div class="casecard" onclick="showDetail('${c.id}')">
+    const held=isOnHold(c);
+    return `<div class="casecard${held?" onhold":""}" onclick="showDetail('${c.id}')">
       <div class="avatar">${initials(c)}</div>
       <div class="cmain">
-        <div class="cname">${esc(c.fullName)} ${cxBadge}</div>
+        <div class="cname">${esc(c.fullName)} ${cxBadge} ${holdChip(c)}</div>
         <div class="cmeta">Case Number: ${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.occupation)}</div>
         <div class="cmeta">${dateLine}</div>
+        ${held?`<div class="holdline"><b>${esc(c.onHoldReason||"On hold")}</b>${c.onHoldDetail?` — ${esc(c.onHoldDetail)}`:""}</div>`:""}
         <div class="ctags">${tagHtml}</div>
       </div>
       <div class="cright" onclick="event.stopPropagation()">
@@ -1823,6 +1892,7 @@ function renderDetail(id){
         <h1 class="big">${esc(c.fullName)}
           <span class="pill ${c.status==="Complete"?"done":"prog"}" style="vertical-align:middle;margin-left:8px">${esc(c.status)}</span>
           ${c.complexity?`<span class="cx cx-${c.complexity}">${esc(c.complexity)}</span>`:`<span class="cx cx-none">Unassigned</span>`}
+          ${holdChip(c)}
         </h1>
         <div class="sub">Case Number: ${esc(c.id)} · ${age(c.dob)} yrs · ${esc(c.gender)} · ${esc(c.occupation)}</div>
         <div class="sub" style="margin-top:4px">Pre-screening completed: <b>${c.preScreeningDate||"—"}</b>${(()=>{const d=daysToComplete(c);return c.status==="Complete"&&d!=null?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b> · <b class="daysbadge">${d} day${d!==1?"s":""} to complete</b>`:(c.assessmentCompletedDate?` · Assessment completed: <b>${esc(c.assessmentCompletedDate)}</b>`:"");})()}</div>
@@ -1832,12 +1902,22 @@ function renderDetail(id){
         <button class="btn ghost sm" onclick="showDashboard()">📊 Dashboard</button>
         <button class="btn ghost sm" onclick="openRawForm('${c.id}')">📄 Raw form</button>
         <button class="btn ghost sm" onclick="openCaseModal('${c.id}')">Edit details</button>
+        ${c.status!=="Complete"?(isOnHold(c)
+          ? `<button class="btn holdbtn on sm" onclick="resumeCase('${c.id}')">▶ Resume</button>`
+          : `<button class="btn holdbtn sm" onclick="openHoldModal('${c.id}')">⏸ Put on hold</button>`):""}
         <button class="btn sm" onclick="toggleStatus('${c.id}')">${c.status==="Complete"?"Reopen (In Progress)":"Mark Complete"}</button>
         <button class="btn peach sm" id="exportBtn" onclick="exportPdf('${c.id}')">⬇ Export PDF</button>
         <button class="btn danger sm" onclick="deleteCase('${c.id}')">🗑 Delete case</button>
       </div>
     </div>
 
+    ${isOnHold(c)?`<div class="holdbanner">
+      <div class="hbicon">⏸</div>
+      <div class="hbmain"><b>On hold — ${esc(c.onHoldReason||"No reason given")}</b>
+        ${c.onHoldDetail?`<div>${esc(c.onHoldDetail)}</div>`:""}
+        <div class="hbmeta">Since ${esc(c.onHoldSince)} · ${currentHoldDays(c)} day${currentHoldDays(c)!==1?"s":""}${(c.holds||[]).length?` · held ${c.holds.length} time${c.holds.length!==1?"s":""} before (${pastHoldDays(c)} days)`:""}</div></div>
+      <button class="btn ghost sm" onclick="resumeCase('${c.id}')">▶ Resume</button>
+    </div>`:""}
     <div class="section"><div class="shead"><h2>Assessor Notes &amp; Recommendation</h2></div><div class="sbody"><textarea class="casenotes" placeholder="e.g. recommended insurer &amp; rationale, terms offered, next steps…" onchange="setCaseNotes('${c.id}',this.value)">${esc(c.assessorNotes||"")}</textarea></div></div>
     <div class="splitrow${c.cleanSummary?"":" nosummary"}">
       ${c.cleanSummary?`<div class="section summarycol"><div class="shead"><h2>AI Summary</h2><button class="btn ghost sm no-print" onclick="copySummary('${c.id}')">📋 Copy</button><button class="btn peach sm no-print" onclick="openSendToInsurer('${c.id}')">✉ Send to Insurer</button><span class="muted no-print" style="font-size:12px">auto-generated</span></div><div class="sbody"><div class="summarybox">${summaryHtml(c.cleanSummary)}</div></div></div>`:""}
@@ -2908,6 +2988,7 @@ function toggleStatus(id){
   else {
     if(!(c.assessorNotes&&c.assessorNotes.trim()) && !confirm("No assessor notes / recommendation have been added.\n\nMark this case Complete anyway?")) return;
     c.status="Complete"; c.assessmentCompletedDate=c.assessmentCompletedDate||todayStr();
+    if(endHold(c) && HOLD_READY) persist(saveHoldRemote(c));   // completing closes any open hold
   }
   c.lastUpdated=todayStr(); renderDetail(id);
   persist(saveSubmissionRemote(c));
@@ -3132,6 +3213,12 @@ async function resolveGraph(){
     if(m) GRAPH.lists[key]=m.id;
     else if(key!=="categories") LIB_MISSING.push(GRAPH_CONFIG.libLists[key]);  // categories is independently optional
   }
+  // On-hold needs four columns on the submissions list; feature stays disabled until all exist.
+  try{
+    const cols=await graphGet(listPath("submissions")+"/columns?$select=name");
+    const have=new Set((cols.value||[]).map(c=>c.name));
+    HOLD_READY=["OnHoldSince","OnHoldReason","OnHoldDetail","OnHoldHistory"].every(n=>have.has(n));
+  }catch(e){ HOLD_READY=false; }
 }
 function libReady(){ return LIB_MISSING.length===0 && !!GRAPH.lists.conditions; }
 function catsManaged(){ return !!GRAPH.lists.categories; }
@@ -3188,7 +3275,74 @@ function subToApp(item){
   for(const k in SUB_MAP){ const v=f[SUB_MAP[k]]; c[k]=(v==null?"":v); }
   SUB_DATES.forEach(k=>c[k]=inDate(c[k]));
   SUB_NUMS.forEach(k=>c[k]=(c[k]===""||c[k]==null)?"":Number(c[k]));
+  // On-hold fields are deliberately NOT in SUB_MAP: they're written by their own PATCH, so a
+  // missing column only breaks the hold feature instead of failing every case save.
+  c.onHoldSince=inDate(f.OnHoldSince); c.onHoldReason=f.OnHoldReason||""; c.onHoldDetail=f.OnHoldDetail||"";
+  c.holds=parseHolds(f.OnHoldHistory);
   return c;
+}
+
+/* ===================== ON HOLD ===================== */
+const HOLD_REASONS=["Awaiting client information","Awaiting medical / GP report","Awaiting insurer","Client unavailable","Awaiting adviser","Other"];
+let HOLD_READY=false;   // set in resolveGraph once the OnHold* columns are confirmed to exist
+// History is one completed hold per line: "start | end | reason | detail" — readable in SharePoint.
+function parseHolds(txt){
+  return String(txt||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+    const p=l.split("|").map(s=>s.trim());
+    return {start:p[0]||"",end:p[1]||"",reason:p[2]||"",detail:p[3]||""};
+  }).filter(h=>h.start&&h.end);
+}
+function fmtHolds(list){
+  const clean=s=>String(s||"").replace(/[|\n]/g,"/").trim();
+  return (list||[]).map(h=>[h.start,h.end,clean(h.reason),clean(h.detail)].join(" | ")).join("\n");
+}
+function isOnHold(c){ return !!(c&&c.onHoldSince); }
+function currentHoldDays(c){ return isOnHold(c)?(daysBetween(c.onHoldSince,todayStr())||0):0; }
+function pastHoldDays(c){ return (c.holds||[]).reduce((s,h)=>s+(daysBetween(h.start,h.end)||0),0); }
+function totalHoldDays(c){ return pastHoldDays(c)+currentHoldDays(c); }
+// Days the team actually controlled: calendar days to complete minus time spent on hold.
+function activeDays(c){ const d=daysToComplete(c); return d==null?null:Math.max(0,d-pastHoldDays(c)); }
+function holdFields(c){
+  return { OnHoldSince:outDate(c.onHoldSince), OnHoldReason:outStr(c.onHoldReason),
+           OnHoldDetail:outStr(c.onHoldDetail), OnHoldHistory:outStr(fmtHolds(c.holds)) };
+}
+async function saveHoldRemote(c){ if(c.spId) await gPatch("submissions",c.spId,holdFields(c)); }
+
+function openHoldModal(id){
+  if(!HOLD_READY){ toast("On-hold columns aren't set up in SharePoint yet","err"); return; }
+  openModal("Put case on hold",
+    `<div class="formgrid">
+      ${fld("Reason","hold_reason",HOLD_REASONS[0],"select",HOLD_REASONS)}
+      ${fld("Detail (optional)","hold_detail","")}
+    </div>
+    <p class="muted" style="font-size:12px;line-height:1.5;margin-top:8px">The case stays in In Progress, flagged on hold with this reason. Hold time is tracked separately and excluded from active turnaround.</p>`,
+    `<button class="btn ghost" onclick="closeModal()">Cancel</button>
+     <button class="btn peach" onclick="putOnHold('${id}')">⏸ Put on hold</button>`);
+}
+function putOnHold(id){
+  const c=getCase(id); if(!c)return;
+  c.onHoldSince=todayStr(); c.onHoldReason=gv("hold_reason"); c.onHoldDetail=gv("hold_detail");
+  closeModal(); refreshAfterHold(id);
+  persist(saveHoldRemote(c)); toast("Case put on hold");
+}
+// Closing a hold moves it into history so its duration is kept.
+function endHold(c){
+  if(!isOnHold(c)) return false;
+  c.holds=(c.holds||[]).concat([{start:c.onHoldSince,end:todayStr(),reason:c.onHoldReason,detail:c.onHoldDetail}]);
+  c.onHoldSince=""; c.onHoldReason=""; c.onHoldDetail="";
+  return true;
+}
+function resumeCase(id){
+  const c=getCase(id); if(!c||!isOnHold(c))return;
+  const d=currentHoldDays(c);
+  endHold(c); refreshAfterHold(id);
+  persist(saveHoldRemote(c)); toast("Resumed after "+d+" day"+(d!==1?"s":"")+" on hold");
+}
+function refreshAfterHold(id){ if(openCaseId===id) renderDetail(id); else renderCases(); }
+function holdChip(c){
+  if(!isOnHold(c)) return "";
+  const d=currentHoldDays(c);
+  return `<span class="holdchip">⏸ On hold · ${d} day${d!==1?"s":""}</span>`;
 }
 function subFields(c){
   const out={ Title: c.fullName||"(unnamed)" };
@@ -3384,6 +3538,76 @@ function applyTheme(dark){
   document.body.classList.toggle("dark", !!dark);
   const b=document.getElementById("themeBtn");
   if(b){ b.textContent = dark?"☀":"🌙"; b.title = dark?"Switch to light mode":"Switch to dark mode"; }
+  applyAccent(getAccent());   // palette differs per mode, so re-derive on every switch
+}
+
+/* ===================== COLOUR THEME (per user) =====================
+   Pick one colour; the bar, heading, tint and accent colours are derived from its hue at
+   fixed lightness levels, so text contrast holds whatever is chosen. Status colours
+   (green/amber/red/indigo) and the PDF stay as they are — they carry meaning / go external. */
+const ACCENT_KEY="caa_accent";
+const ACCENT_VARS=["--bar","--navy","--sky","--onaccent","--peach","--onpeach"];
+const ACCENT_PRESETS=[
+  ["Coastal",""],["Ocean","#1f6fb2"],["Teal","#0f8b8d"],["Forest","#2e7d4f"],["Plum","#7a3e9d"],
+  ["Crimson","#b3263a"],["Sunset","#e0662b"],["Gold","#c9971c"],["Rose","#c2477a"],["Slate","#4a5a6a"]];
+function getAccent(){ try{ return localStorage.getItem(ACCENT_KEY)||""; }catch(e){ return ""; } }
+function hexToHsl(hex){
+  const m=/^#?([0-9a-f]{6})$/i.exec(hex||""); if(!m) return null;
+  const n=parseInt(m[1],16), r=(n>>16&255)/255, g=(n>>8&255)/255, b=(n&255)/255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2;
+  let h=0,s=0;
+  if(mx!==mn){
+    const d=mx-mn; s=l>.5?d/(2-mx-mn):d/(mx+mn);
+    h = mx===r?((g-b)/d+(g<b?6:0)) : mx===g?((b-r)/d+2) : ((r-g)/d+4);
+    h*=60;
+  }
+  return {h:Math.round(h),s:Math.round(s*100),l:Math.round(l*100)};
+}
+const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));
+function accentPalette(hex,dark){
+  const c=hexToHsl(hex); if(!c) return null;
+  const h=c.h, s=c.s, hsl=(S,L)=>`hsl(${h} ${Math.round(S)}% ${L}%)`;
+  return dark ? {
+    "--bar":hsl(clampN(s,18,50),19), "--navy":hsl(clampN(s,30,60),86), "--sky":hsl(clampN(s,22,45),20),
+    "--onaccent":hsl(clampN(s,30,55),88), "--peach":hsl(clampN(s,45,80),64), "--onpeach":hsl(clampN(s,30,60),12)
+  } : {
+    "--bar":hsl(clampN(s,20,65),20), "--navy":hsl(clampN(s,25,60),18), "--sky":hsl(clampN(s,40,85),94),
+    "--onaccent":hsl(clampN(s,25,60),20), "--peach":hsl(clampN(s,45,85),68), "--onpeach":hsl(clampN(s,30,60),12)
+  };
+}
+function applyAccent(hex){
+  const st=document.body.style;
+  ACCENT_VARS.forEach(v=>st.removeProperty(v));                 // empty = Coastal brand defaults
+  const p=hex?accentPalette(hex,document.body.classList.contains("dark")):null;
+  if(p) Object.keys(p).forEach(k=>st.setProperty(k,p[k]));
+}
+function setAccent(hex){
+  try{ if(hex) localStorage.setItem(ACCENT_KEY,hex); else localStorage.removeItem(ACCENT_KEY); }catch(e){}
+  applyAccent(hex);
+  if(openCaseId) renderDetail(openCaseId);
+  const w=document.getElementById("accentWheel"); if(w&&hex) w.value=hex;
+  document.querySelectorAll(".swatch").forEach(s=>s.classList.toggle("on",(s.dataset.hex||"")===(hex||"")));
+}
+function openAccentModal(){
+  const cur=getAccent();
+  openModal("Colour theme",
+    `<p class="muted" style="font-size:12.5px;line-height:1.5;margin:0 0 12px">Pick any colour — the Hub builds a matching, readable palette from it.
+      Only you see it (saved in this browser). PDFs and status colours stay as they are.</p>
+     <div class="accentrow">
+       <label class="wheelwrap" title="Pick any colour">
+         <input type="color" id="accentWheel" value="${cur||"#0f2433"}" oninput="setAccent(this.value)">
+         <span>🎨 Colour wheel</span>
+       </label>
+       <div class="accentpreview">
+         <div class="apbar"><span>Pre-Screening Hub</span></div>
+         <div class="apbody"><span class="apchip">Tint</span><span class="apbtn">Button</span><b>Heading</b></div>
+       </div>
+     </div>
+     <div class="swatchgrid">${ACCENT_PRESETS.map(([n,hex])=>`
+       <button type="button" class="swatch${(hex||"")===(cur||"")?" on":""}" data-hex="${hex}" onclick="setAccent('${hex}')" title="${n}">
+         <i style="background:${hex||"#0f2433"}"></i><span>${n}</span></button>`).join("")}</div>`,
+    `<button class="btn ghost" onclick="setAccent('')">↺ Reset to Coastal</button>
+     <button class="btn" onclick="closeModal()">Done</button>`);
 }
 function toggleTheme(){
   const dark=!document.body.classList.contains("dark");

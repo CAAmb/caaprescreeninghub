@@ -2040,6 +2040,44 @@ async function loadInsurerLogos(c){
   return out;
 }
 
+/* ---- PDF-safe text ----
+   jsPDF's built-in Helvetica only covers the WinAnsi character set. A single character outside
+   it (→ ⚠ ≥ emoji …) flips the whole string into a different encoding — it renders letter-spaced
+   ("1 7 8 c m") and the symbol itself comes out as junk. Every string drawn into the report is
+   passed through this first: common symbols get readable stand-ins, anything else undrawable
+   is dropped. Em/en dashes, smart quotes, · • … and accented letters are all WinAnsi and kept. */
+const PDF_SUBS={"→":"->","←":"<-","↔":"<->","⇒":"=>","⚠":"!","≥":">=","≤":"<=","≠":"!=","≈":"~",
+  "✓":"","✔":"","✕":"x","✖":"x","✗":"x","−":"-"," ":" "," ":" "," ":" ","​":"","﻿":""};
+const PDF_OK=/[\t\n\r\x20-\x7e -ÿ–—‘’‚“”„†‡•…‰‹›€™ŒœŠšŸŽžƒˆ˜]/;
+function pdfSafe(s){
+  if(s==null) return s;
+  const GAP="\u0000";   // marks where a character was dropped
+  let out="";
+  for(const ch of String(s)){
+    if(ch in PDF_SUBS) out+=PDF_SUBS[ch]||GAP;
+    else out+=PDF_OK.test(ch)?ch:GAP;
+  }
+  if(out.indexOf(GAP)<0) return out;
+  // collapse only the spacing around dropped characters, so deliberate spacing elsewhere
+  // (e.g. the "   ·   " separators) is left exactly as written
+  return out.replace(/[ \u0000]*\u0000[ \u0000]*/g,(m,off,str)=>(off===0||off+m.length===str.length)?"":" ");
+}
+// Route every text path on this doc through pdfSafe: direct text, line-wrapping (so widths are
+// measured on the cleaned text) and every AutoTable cell (cleaned in didParseCell, before layout).
+function makePdfSafe(doc){
+  const t=doc.text.bind(doc), sp=doc.splitTextToSize.bind(doc), at=doc.autoTable.bind(doc);
+  doc.text=(txt,...a)=>t(Array.isArray(txt)?txt.map(pdfSafe):pdfSafe(txt),...a);
+  doc.splitTextToSize=(txt,...a)=>sp(pdfSafe(txt),...a);
+  doc.autoTable=(opts)=>{
+    const user=opts.didParseCell;
+    return at({...opts, didParseCell:(d)=>{
+      if(Array.isArray(d.cell.text)) d.cell.text=d.cell.text.map(pdfSafe);
+      if(user) user(d);
+    }});
+  };
+  return doc;
+}
+
 // Native vector PDF (jsPDF + AutoTable) — portrait A4, branded report.
 async function exportPdf(caseId, mode){
   const c=getCase(caseId);
@@ -2050,7 +2088,7 @@ async function exportPdf(caseId, mode){
   try{
     const logos=await loadInsurerLogos(c);
     const { jsPDF }=window.jspdf;
-    const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+    const doc=makePdfSafe(new jsPDF({orientation:"portrait",unit:"mm",format:"a4"}));
     const NAVY=[15,36,51], SKY=[222,245,255], PEACH=[235,163,128], INK=[28,43,54], MUTED=[110,122,132], LINE=[214,221,226], ALT=[247,249,250];
     const pageW=doc.internal.pageSize.getWidth(), pageH=doc.internal.pageSize.getHeight();
     const M=14, usable=pageW-2*M;
@@ -2115,6 +2153,18 @@ async function exportPdf(caseId, mode){
 
     /* ---------- helpers ---------- */
     const need=(mm)=>{ if(y+mm>pageH-16){ doc.addPage(); y=CONT; } };
+    const TITLE_H=11, PAGE_ROOM=pageH-18-CONT;   // section heading height; usable height on a fresh page
+    // Exact rendered height of a table, via a dry run on a throwaway doc (Infinity if it can't fit one page).
+    const measure=(opts)=>{
+      const t=makePdfSafe(new jsPDF({orientation:"portrait",unit:"mm",format:"a4"}));
+      t.autoTable({...opts,startY:CONT});
+      return t.internal.getNumberOfPages()>1 ? Infinity : t.lastAutoTable.finalY-CONT;
+    };
+    // Keep a heading with its content: move the whole section to a new page if it would split
+    // but fits on one page; otherwise just make sure the heading isn't stranded at the bottom.
+    const keepTogether=(h,minFollow)=>{
+      if(TITLE_H+h<=PAGE_ROOM) need(TITLE_H+h+2); else need(TITLE_H+(minFollow||18));
+    };
     const sectionTitle=(t)=>{
       need(16);
       doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(...NAVY);
@@ -2130,7 +2180,7 @@ async function exportPdf(caseId, mode){
       margin:{left:M,right:M,top:CONT,bottom:18}};
     // key/value section — short values pack 2-per-line; long values get their own full-width row.
     // (Keeps rows uniform so labels never drift away from their values.)
-    function kvTable(rows){
+    function kvTable(title,rows){
       const shortR=[], longR=[];
       rows.forEach(r=>{
         if(!r||!r[0]) return;
@@ -2142,18 +2192,15 @@ async function exportPdf(caseId, mode){
         const a=shortR[i], b=shortR[i+1];
         pairs.push([a[0],a[1], b?b[0]:"", b?b[1]:""]);
       }
-      if(pairs.length){
-        doc.autoTable({...tbl, startY:y, body:pairs,
-          styles:{...tbl.styles,fontSize:7.4,cellPadding:1.8},
-          columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:53,fontStyle:"bold"},2:{cellWidth:38,textColor:MUTED},3:{cellWidth:53,fontStyle:"bold"}}});
-        y=doc.lastAutoTable.finalY;
-      }
-      if(longR.length){
-        doc.autoTable({...tbl, startY:y, body:longR,
-          styles:{...tbl.styles,fontSize:7.4,cellPadding:1.8},
-          columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:usable-38}}});
-        y=doc.lastAutoTable.finalY;
-      }
+      const kvStyles={...tbl.styles,fontSize:7.4,cellPadding:1.8};
+      const pairOpts=pairs.length?{...tbl, body:pairs, styles:kvStyles,
+        columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:53,fontStyle:"bold"},2:{cellWidth:38,textColor:MUTED},3:{cellWidth:53,fontStyle:"bold"}}}:null;
+      const longOpts=longR.length?{...tbl, body:longR, styles:kvStyles,
+        columnStyles:{0:{cellWidth:38,textColor:MUTED},1:{cellWidth:usable-38}}}:null;
+      keepTogether((pairOpts?measure(pairOpts):0)+(longOpts?measure(longOpts):0));
+      sectionTitle(title);
+      if(pairOpts){ doc.autoTable({...pairOpts, startY:y}); y=doc.lastAutoTable.finalY; }
+      if(longOpts){ doc.autoTable({...longOpts, startY:y}); y=doc.lastAutoTable.finalY; }
       y+=7;
     }
 
@@ -2199,30 +2246,26 @@ async function exportPdf(caseId, mode){
     }
 
     /* ---------- client details ---------- */
-    sectionTitle("Client Details");
-    kvTable([["Full name",name],["Date of birth",c.dob?`${c.dob} (${age(c.dob)})`:""],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m],
+    kvTable("Client Details",[["Full name",name],["Date of birth",c.dob?`${c.dob} (${age(c.dob)})`:""],["Gender",c.gender],["Smoker (12m)",c.smokerLast12m],
       ["Living in Australia",c.livingInAustralia],["Citizen or PR",c.citizenOrPR],["Applied for PR",c.appliedForPR],["Current visa",c.currentVisaDetail],
       ["Overseas location",c.overseasLocationDetail],["Travel abroad (2yrs)",c.plansToTravel2yrs],["Travel plans",c.travelPlansDetail]]);
 
-    sectionTitle("Occupational & Financial");
-    kvTable([["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],
+    kvTable("Occupational & Financial",[["Currently working",c.currentlyWorking],["Occupation",c.occupation],["Employer",c.employer],["Annual income",c.annualIncome?("$"+Number(c.annualIncome).toLocaleString()):""],
       ["Employment status",c.employmentStatus],["Hours / weeks",c.hoursWeeksWorked],["Duties breakdown",c.dutiesBreakdown],["Hazardous duties",c.hazardousDuties],
       ["Self-employment",c.selfEmploymentDetail],["Bonus/comm >20%",c.bonusCommissionOver20],["Second job",c.secondJob],["Second job detail",c.secondJobDetail],
       ["Plans to change job",c.plansToChangeJob],["Job change detail",c.jobChangeDetail],["Bankruptcy",c.bankruptcyStatus],["Bankruptcy detail",c.bankruptcyDetail]]);
 
-    sectionTitle("Lifestyle & General Health");
-    kvTable([["Height / weight",hwLine(c)],["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],["High blood pressure",c.highBloodPressure],
+    kvTable("Lifestyle & General Health",[["Height / weight",hwLine(c,true)],["Weight changed (12m)",c.weightChanged12m],["Weight change detail",c.weightChangeDetail],["High blood pressure",c.highBloodPressure],
       ["BP detail",c.bpDetail],["High cholesterol",c.highCholesterol],["Cholesterol detail",c.cholesterolDetail],["Alcohol / week",c.alcoholPerWeek],
       ["Advised reduce alcohol",c.alcoholReductionAdvised],["Advice date",c.alcoholAdviceDate],["Rec. drugs (10yrs)",c.recreationalDrugs10yrs],["Drug detail",c.drugDetail],
       ["Hazardous pastimes",c.hazardousPastimes],["Activity detail",c.hazardousActivityDetail]]);
 
     /* ---------- health issues ---------- */
-    sectionTitle(`Health Issues (${c.healthIssues.length})`);
     {
       const body=[], meta=[];
       c.healthIssues.forEach(h=>{
         const area=cleanVal(h.bodyArea), d1=cleanVal(h.dateFirstSymptoms), d2=cleanVal(h.dateLastSymptoms);
-        body.push([cleanVal(h.category)||"—",(cleanVal(h.diagnosis)||"—")+(area?`\n${area}`:""),`${d1||"—"} → ${d2||"—"}`,cleanVal(h.treatmentStatus)||"—",h.surgery==="Yes"?("Yes"+(cleanVal(h.surgeryDate)?`\n${cleanVal(h.surgeryDate)}`:"")):"No",cleanVal(h.fullyRecovered)||"—"]);
+        body.push([cleanVal(h.category)||"—",(cleanVal(h.diagnosis)||"—")+(area?`\n${area}`:""),(d1||d2)?`${d1||"—"} to ${d2||"ongoing"}`:"—",cleanVal(h.treatmentStatus)||"—",h.surgery==="Yes"?("Yes"+(cleanVal(h.surgeryDate)?`\n${cleanVal(h.surgeryDate)}`:"")):"No",cleanVal(h.fullyRecovered)||"—"]);
         meta.push("main");
         const extras=[];
         if(cleanVal(h.severity)) extras.push("Severity: "+cleanVal(h.severity));
@@ -2231,22 +2274,29 @@ async function exportPdf(caseId, mode){
         if(cleanVal(h.assessorNotes)) extras.push("Notes: "+cleanVal(h.assessorNotes));
         if(extras.length){ body.push([{content:extras.join("   ·   "),colSpan:6}]); meta.push("sub"); }
       });
-      doc.autoTable({...tbl, startY:y,
+      const hiOpts={...tbl,
         head:[["Category","Diagnosis / area","Symptom dates","Treatment","Surgery","Recovered"]],
         body: body.length?body:[[{content:"No health issues recorded.",colSpan:6,styles:{textColor:MUTED,fontStyle:"italic"}}]],
         columnStyles:{0:{cellWidth:26,fontStyle:"bold"},1:{cellWidth:44},2:{cellWidth:30},3:{cellWidth:24},4:{cellWidth:26},5:{cellWidth:32}},
         didParseCell:(d)=>{ if(d.section==="body"&&meta[d.row.index]==="sub"){ d.cell.styles.fontSize=6.9; d.cell.styles.textColor=MUTED; d.cell.styles.fillColor=[252,253,253]; } }
-      });
+      };
+      keepTogether(measure(hiOpts),30);   // long lists still flow across pages, but never strand the heading
+      sectionTitle(`Health Issues (${c.healthIssues.length})`);
+      doc.autoTable({...hiOpts, startY:y});
       y=doc.lastAutoTable.finalY+7;
     }
 
     /* ---------- family history ---------- */
-    sectionTitle(`Family History (${c.familyHistory.length})`);
-    doc.autoTable({...tbl, startY:y,
-      head:[["Condition","Family member","Age at diagnosis"]],
-      body: c.familyHistory.length? c.familyHistory.map(f=>[f.condition||"—",f.familyMember||"—",(f.ageAtDiagnosis===0||f.ageAtDiagnosis)?String(f.ageAtDiagnosis):"—"]) : [[{content:"No family history recorded.",colSpan:3,styles:{textColor:MUTED,fontStyle:"italic"}}]],
-      columnStyles:{0:{cellWidth:92,fontStyle:"bold"},1:{cellWidth:58},2:{cellWidth:32}}});
-    y=doc.lastAutoTable.finalY+7;
+    {
+      const fhOpts={...tbl,
+        head:[["Condition","Family member","Age at diagnosis"]],
+        body: c.familyHistory.length? c.familyHistory.map(f=>[f.condition||"—",f.familyMember||"—",(f.ageAtDiagnosis===0||f.ageAtDiagnosis)?String(f.ageAtDiagnosis):"—"]) : [[{content:"No family history recorded.",colSpan:3,styles:{textColor:MUTED,fontStyle:"italic"}}]],
+        columnStyles:{0:{cellWidth:92,fontStyle:"bold"},1:{cellWidth:58},2:{cellWidth:32}}};
+      keepTogether(measure(fhOpts),24);
+      sectionTitle(`Family History (${c.familyHistory.length})`);
+      doc.autoTable({...fhOpts, startY:y});
+      y=doc.lastAutoTable.finalY+7;
+    }
 
     /* ---------- insurer outcomes (own page so the panel stays together) ---------- */
     doc.addPage(); y=CONT;
@@ -2487,7 +2537,9 @@ function cleanVal(v){
 function bmi(c){ if(!c.heightCm||!c.weightKg)return""; const m=c.heightCm/100; return (c.weightKg/(m*m)).toFixed(1); }
 function bmiCat(b){ b=parseFloat(b); if(!b)return""; if(b<18.5)return"underweight"; if(b<25)return"healthy"; if(b<30)return"overweight"; return"obese"; }
 function bmiFlagged(b){ b=parseFloat(b); return b>=28; }
-function hwLine(c){ const b=bmi(c); return (c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(b?` (BMI ${b}${bmiFlagged(b)?" ⚠ elevated (≥28)":""})`:""); }
+// plain=true for the PDF: same content without the ⚠/≥ symbols its font can't draw.
+function hwLine(c,plain){ const b=bmi(c); const flag=bmiFlagged(b)?(plain?" – elevated, 28 or over":" ⚠ elevated (≥28)"):"";
+  return (c.heightCm?c.heightCm+"cm":"")+(c.weightKg?" / "+c.weightKg+"kg":"")+(b?` (BMI ${b}${flag})`:""); }
 function updateBmi(){
   const el=document.getElementById("f_bmiDisplay"); if(!el)return;
   const h=parseFloat(gv("f_heightCm")), w=parseFloat(gv("f_weightKg"));

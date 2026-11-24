@@ -807,6 +807,14 @@ const TREATMENT_STATUS = ["Ongoing","Resolved","Monitoring","As needed","None"];
 const OUTCOMES = ["Standard","Loaded","Exclusion","Postponed","Declined","Not assessed"];
 const LOADING_TYPES = ["None","Medical %","Medical $ per mille","Total %","Total $ per mille"];
 const INSURERS = ["Acenda","AIA","ClearView","Encompass","Futura","MetLife","NEOS","OnePath","PPS Mutual","TAL","Zurich"];
+// Insurer rows display A–Z everywhere (case table, PDF, library). Case-insensitive, and rows with
+// no name yet sort last so a freshly added blank row doesn't jump to the top. Display order only.
+function byInsurer(a,b){
+  const x=(a.insurerName||"").trim(), y=(b.insurerName||"").trim();
+  if(!x||!y) return (!x)-(!y);
+  return x.localeCompare(y,"en",{sensitivity:"base"});
+}
+const sortedInsurers=list=>(list||[]).slice().sort(byInsurer);
 // "Send to Insurer" — per-insurer recipients + subject. "XX" in subject is replaced with the client's initials.
 // "group" = insurers sharing one mailbox/account: selecting several only opens ONE email,
 // but every selected brand is still recorded in Insurer Outcomes.
@@ -1444,7 +1452,7 @@ function renderCondition(){
   autoGrowAll();
 }
 function variantCard(c,vr){
-  const rows=vr.outcomes.map(o=>libOutcomeRow(vr,o)).join("")
+  const rows=sortedInsurers(vr.outcomes).map(o=>libOutcomeRow(vr,o)).join("")
     || `<tr><td colspan="7" class="muted" style="padding:14px;text-align:center">No insurer outcomes recorded yet.</td></tr>`;
   const exp=COVER_TYPES.map(([k,label])=>{
     const p=parseExp(vr["exp"+k]);
@@ -1985,14 +1993,62 @@ function pdfCoverFill(type){
     default: return [255,255,255];
   }
 }
+/* ---- Insurer logos for the PDF ----
+   Drop image files into a `logos/` folder named by the insurer slug (aia.png, pps-mutual.png …).
+   PNG, JPG or WEBP all work. Any missing logo falls back to the name, so this works with
+   some, all, or none. Each logo is auto-trimmed of empty border and downscaled on load, so
+   padded or very large source files still come out consistent and keep the PDF small. */
+const logoCache={};
+const LOGO_EXTS=["png","jpg","jpeg","webp"];
+function insurerSlug(name){ return String(name||"").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""); }
+function loadImage(src){
+  return new Promise(res=>{ const i=new Image(); i.onload=()=>res(i.naturalWidth?i:null); i.onerror=()=>res(null); i.src=src; });
+}
+// Crop away transparent / near-white margins, then cap the longest side.
+function trimLogo(img){
+  const MAX=480;
+  const c=document.createElement("canvas"); c.width=img.naturalWidth; c.height=img.naturalHeight;
+  const x=c.getContext("2d"); x.drawImage(img,0,0);
+  let box=null;
+  try{
+    const d=x.getImageData(0,0,c.width,c.height).data, W=c.width, H=c.height;
+    let t=H,l=W,b=-1,r=-1;
+    for(let yy=0;yy<H;yy++) for(let xx=0;xx<W;xx++){
+      const i=(yy*W+xx)*4, a=d[i+3];
+      const blank = a<16 || (d[i]>244 && d[i+1]>244 && d[i+2]>244);
+      if(!blank){ if(yy<t)t=yy; if(yy>b)b=yy; if(xx<l)l=xx; if(xx>r)r=xx; }
+    }
+    if(r>=l && b>=t){ const p=Math.round(Math.max(r-l,b-t)*0.02); box={x:Math.max(0,l-p),y:Math.max(0,t-p),w:Math.min(W,r+p+1)-Math.max(0,l-p),h:Math.min(H,b+p+1)-Math.max(0,t-p)}; }
+  }catch(e){ /* canvas read blocked — use the image uncropped */ }
+  box=box||{x:0,y:0,w:c.width,h:c.height};
+  const s=Math.min(1,MAX/Math.max(box.w,box.h));
+  const o=document.createElement("canvas"); o.width=Math.max(1,Math.round(box.w*s)); o.height=Math.max(1,Math.round(box.h*s));
+  o.getContext("2d").drawImage(c,box.x,box.y,box.w,box.h,0,0,o.width,o.height);
+  return {data:o.toDataURL("image/png"), w:o.width, h:o.height};
+}
+async function loadLogo(name){
+  const slug=insurerSlug(name); if(!slug) return null;
+  if(slug in logoCache) return logoCache[slug];
+  let img=null;
+  for(const ext of LOGO_EXTS){ img=await loadImage("logos/"+slug+"."+ext); if(img) break; }
+  logoCache[slug]=img?trimLogo(img):null;
+  return logoCache[slug];
+}
+async function loadInsurerLogos(c){
+  const out={};
+  await Promise.all((c.insurerOutcomes||[]).map(async o=>{ const img=await loadLogo(o.insurerName); if(img) out[insurerSlug(o.insurerName)]=img; }));
+  return out;
+}
+
 // Native vector PDF (jsPDF + AutoTable) — portrait A4, branded report.
-function exportPdf(caseId, mode){
+async function exportPdf(caseId, mode){
   const c=getCase(caseId);
   const filename=reportFilename(c)+".pdf";
   const btn=document.getElementById(mode==="print"?"printBtn":"exportBtn");
   if(!window.jspdf||!window.jspdf.jsPDF){ alert("PDF library not loaded — check jspdf.umd.min.js is present."); return; }
   if(btn){ btn.disabled=true; btn.textContent="Generating…"; }
   try{
+    const logos=await loadInsurerLogos(c);
     const { jsPDF }=window.jspdf;
     const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
     const NAVY=[15,36,51], SKY=[222,245,255], PEACH=[235,163,128], INK=[28,43,54], MUTED=[110,122,132], LINE=[214,221,226], ALT=[247,249,250];
@@ -2199,7 +2255,8 @@ function exportPdf(caseId, mode){
       const ck=["Life","TPD","Trauma","IncomeProtection"];
       const cellText=(cv)=>{ const t=(cv&&cv.type)||"Not assessed"; const d=cleanVal(coverDetailText(cv)); return t+(d?`\n${d}`:""); };
       const body=[], meta=[];
-      c.insurerOutcomes.forEach(o=>{
+      const LOGO_H=7, LOGO_PAD=1.5;   // mm: logo box height above the insurer name
+      sortedInsurers(c.insurerOutcomes).forEach(o=>{
         body.push([(cleanVal(o.insurerName)||"—")+`\nSent ${cleanVal(o.dateSent)||"—"}\nRec'd ${cleanVal(o.dateReceived)||"pending"}`,cellText(o.covers.Life),cellText(o.covers.TPD),cellText(o.covers.Trauma),cellText(o.covers.IncomeProtection)]);
         meta.push({kind:"main",o});
         const extras=[];
@@ -2217,10 +2274,24 @@ function exportPdf(caseId, mode){
           if(d.section!=="body")return;
           const m=meta[d.row.index]; if(!m)return;
           if(m.kind==="sub"){ d.cell.styles.fontSize=6.3; d.cell.styles.textColor=MUTED; d.cell.styles.fillColor=[252,253,253]; return; }
+          if(d.column.index===0 && logos[insurerSlug(m.o.insurerName)]){
+            // make room above the name for the logo (drawn in didDrawCell)
+            d.cell.styles.cellPadding={top:LOGO_PAD+LOGO_H+1.2,right:1.5,bottom:1.5,left:1.5};
+          }
           if(d.column.index>=1&&d.column.index<=4){
             const cv=m.o.covers[ck[d.column.index-1]];
             d.cell.styles.fillColor=pdfCoverFill(cv&&cv.type);
           }
+        },
+        didDrawCell:(d)=>{
+          if(d.section!=="body"||d.column.index!==0) return;
+          const m=meta[d.row.index]; if(!m||m.kind!=="main") return;
+          const lg=logos[insurerSlug(m.o.insurerName)]; if(!lg) return;
+          // fit inside the box, keeping the logo's own proportions
+          const boxW=d.cell.width-3, ratio=lg.w/lg.h;
+          let w=LOGO_H*ratio, h=LOGO_H;
+          if(w>boxW){ w=boxW; h=w/ratio; }
+          try{ doc.addImage(lg.data,"PNG",d.cell.x+1.5,d.cell.y+LOGO_PAD+(LOGO_H-h)/2,w,h); }catch(e){}
         }
       });
       y=doc.lastAutoTable.finalY+8;
@@ -2808,7 +2879,7 @@ function coverTint(t){
   return"#ffffff";
 }
 function insurerSection(c){
-  const rows = c.insurerOutcomes.map(io=>{
+  const rows = sortedInsurers(c.insurerOutcomes).map(io=>{
     const allSet = COVER_KEYS.every(k=>io.covers[k] && io.covers[k].type && io.covers[k].type!=="Not assessed");
     const awaiting = COVER_KEYS.some(k=>io.covers[k] && io.covers[k].type==="Further information");
     const rowCls = awaiting ? "row-awaiting" : (allSet ? "row-complete" : "");
